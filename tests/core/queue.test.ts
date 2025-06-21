@@ -47,7 +47,9 @@ describe('Queue', () => {
 
   describe('addJob', () => {
     it('should add a job with default settings', async () => {
-      const id = await queue.addJob('test-job', { data: 'test data' });
+      const id = await queue.addJob('test-job', { 
+        payload: { data: 'test data' }
+      });
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
@@ -56,8 +58,9 @@ describe('Queue', () => {
       expect(queue.messages[0].meta.priority).toBe(0);
     });
 
-    it('should add a job with custom settings using options parameter', async () => {
-      const id = await queue.addJob('test-job', { data: 'test data' }, {
+    it('should add a job with custom settings using new API', async () => {
+      const id = await queue.addJob('test-job', {
+        payload: { data: 'test data' },
         ttr: 600,
         delay: 30,
         priority: 5
@@ -77,7 +80,7 @@ describe('Queue', () => {
       queue.on('beforePush', beforePushSpy);
       queue.on('afterPush', afterPushSpy);
 
-      await queue.addJob('test-job', { data: 'test data' });
+      await queue.addJob('test-job', { payload: { data: 'test data' } });
 
       expect(beforePushSpy).toHaveBeenCalledOnce();
       expect(afterPushSpy).toHaveBeenCalledOnce();
@@ -92,8 +95,8 @@ describe('Queue', () => {
     });
 
     it('should use default TTR when no options provided', async () => {
-      await queue.addJob('test-job', { data: 'job1' }, { ttr: 600 });
-      await queue.addJob('test-job', { data: 'job2' });
+      await queue.addJob('test-job', { payload: { data: 'job1' }, ttr: 600 });
+      await queue.addJob('test-job', { payload: { data: 'job2' } });
 
       expect(queue.messages[0].meta.ttr).toBe(600);
       expect(queue.messages[1].meta.ttr).toBe(300); // back to default

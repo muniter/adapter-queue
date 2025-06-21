@@ -28,14 +28,14 @@ describe('FileQueue', () => {
 
   describe('auto-initialization', () => {
     it('should create queue directory on first job addition', async () => {
-      await queue.addJob('simple-job', { data: 'test' });
+      await queue.addJob('simple-job', { payload: { data: 'test' } });
       
       const stats = await fs.stat(testDir);
       expect(stats.isDirectory()).toBe(true);
     });
 
     it('should create index file on first job addition', async () => {
-      await queue.addJob('simple-job', { data: 'test' });
+      await queue.addJob('simple-job', { payload: { data: 'test' } });
       
       const indexPath = path.join(testDir, 'index.json');
       const stats = await fs.stat(indexPath);
@@ -45,7 +45,7 @@ describe('FileQueue', () => {
 
   describe('addJob', () => {
     it('should add job to waiting queue', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
       
       expect(id).toBeTruthy();
       expect(typeof id).toBe('string');
@@ -55,14 +55,17 @@ describe('FileQueue', () => {
     });
 
     it('should add delayed job to delayed queue', async () => {
-      const id = await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 10 });
+      const id = await queue.addJob('delayed-job', { 
+        payload: { message: 'test payload' }, 
+        delay: 10 
+      });
       
       const status = await queue.status(id);
       expect(status).toBe('waiting');
     });
 
     it('should create job file', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
       
       const jobPath = path.join(testDir, `job${id}.data`);
       const stats = await fs.stat(jobPath);
@@ -72,7 +75,7 @@ describe('FileQueue', () => {
 
   describe('reserve', () => {
     it('should reserve waiting job', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
 
       const reserved = await queue['reserve'](0);
       expect(reserved).not.toBeNull();
@@ -85,7 +88,10 @@ describe('FileQueue', () => {
     });
 
     it('should respect delay', async () => {
-      await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 2 });
+      await queue.addJob('delayed-job', { 
+        payload: { message: 'test payload' }, 
+        delay: 2 
+      });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).toBeNull();
@@ -97,7 +103,10 @@ describe('FileQueue', () => {
     });
 
     it('should handle TTR timeout', async () => {
-      await queue.addJob('simple-job', { data: 'test payload' }, { ttr: 1 });
+      await queue.addJob('simple-job', { 
+        payload: { data: 'test payload' }, 
+        ttr: 1 
+      });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).not.toBeNull();
@@ -118,7 +127,7 @@ describe('FileQueue', () => {
 
   describe('complete', () => {
     it('should remove completed job', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
 
       const reserved = await queue['reserve'](0);
       expect(reserved).not.toBeNull();
@@ -135,9 +144,12 @@ describe('FileQueue', () => {
 
   describe('clear', () => {
     it('should remove all jobs', async () => {
-      await queue.addJob('simple-job', { data: 'job1' });
-      await queue.addJob('simple-job', { data: 'job2' });
-      await queue.addJob('delayed-job', { message: 'job3' }, { delay: 10 });
+      await queue.addJob('simple-job', { payload: { data: 'job1' } });
+      await queue.addJob('simple-job', { payload: { data: 'job2' } });
+      await queue.addJob('delayed-job', { 
+        payload: { message: 'job3' }, 
+        delay: 10 
+      });
 
       await queue.clear();
 
@@ -152,7 +164,7 @@ describe('FileQueue', () => {
 
   describe('remove', () => {
     it('should remove specific job from waiting', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
 
       const removed = await queue.remove(id);
       expect(removed).toBe(true);
@@ -162,7 +174,10 @@ describe('FileQueue', () => {
     });
 
     it('should remove specific job from delayed', async () => {
-      const id = await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 10 });
+      const id = await queue.addJob('delayed-job', { 
+        payload: { message: 'test payload' }, 
+        delay: 10 
+      });
 
       const removed = await queue.remove(id);
       expect(removed).toBe(true);
@@ -172,7 +187,7 @@ describe('FileQueue', () => {
     });
 
     it('should remove specific job from reserved', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test payload' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test payload' } });
       
       await queue['reserve'](0);
 
@@ -192,7 +207,7 @@ describe('FileQueue', () => {
   describe('concurrent access', () => {
     it('should handle concurrent job additions', async () => {
       const promises = Array.from({ length: 10 }, (_, i) => 
-        queue.addJob('simple-job', { data: `job${i}` })
+        queue.addJob('simple-job', { payload: { data: `job${i}` } })
       );
 
       const ids = await Promise.all(promises);
@@ -207,7 +222,7 @@ describe('FileQueue', () => {
     it('should handle concurrent reserves', async () => {
       // Add 5 jobs
       for (let i = 0; i < 5; i++) {
-        await queue.addJob('simple-job', { data: `job${i}` });
+        await queue.addJob('simple-job', { payload: { data: `job${i}` } });
       }
 
       // Reserve concurrently
@@ -231,8 +246,8 @@ describe('FileQueue', () => {
         processedJobs.push(payload.data);
       });
 
-      await queue.addJob('simple-job', { data: 'test1' });
-      await queue.addJob('simple-job', { data: 'test2' });
+      await queue.addJob('simple-job', { payload: { data: 'test1' } });
+      await queue.addJob('simple-job', { payload: { data: 'test2' } });
 
       // Process jobs once
       await queue.run(false);

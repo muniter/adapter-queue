@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobOptions } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest } from '../interfaces/job.ts';
 
 /**
  * Abstract queue class providing event-based job processing with fluent API.
@@ -27,7 +27,7 @@ import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions,
  * await queue.run();
  * ```
  */
-export abstract class Queue<TJobMap = Record<string, any>, TJobOptions extends BaseJobOptions = BaseJobOptions> extends EventEmitter {
+export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends BaseJobRequest<any> = BaseJobRequest<any>> extends EventEmitter {
   protected ttrDefault = 300;
 
   /**
@@ -47,32 +47,38 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobOptions extends B
    * 
    * @template K - The job name type from TJobMap
    * @param name - The name of the job type to add
-   * @param payload - The job payload data, automatically typed based on the job name
-   * @param options - Optional job configuration
+   * @param request - Job request containing payload and options
    * @returns Promise that resolves to the unique job ID
    * 
    * @example
    * ```typescript
    * // Simple job addition
-   * const id = await queue.addJob('send-email', { 
-   *   to: 'user@example.com', 
-   *   subject: 'Hello', 
-   *   body: 'World' 
+   * const id = await queue.addJob('send-email', {
+   *   payload: { 
+   *     to: 'user@example.com', 
+   *     subject: 'Hello', 
+   *     body: 'World' 
+   *   }
    * });
    * 
-   * // With options parameter
-   * await queue.addJob('backup', { path: '/data' }, { ttr: 3600, delay: 60 });
+   * // With options
+   * await queue.addJob('backup', {
+   *   payload: { path: '/data' },
+   *   ttr: 3600,
+   *   delay: 60
+   * });
    * ```
    */
   async addJob<K extends keyof TJobMap>(
     name: K,
-    payload: TJobMap[K],
-    options?: TJobOptions
+    request: TJobRequest & { payload: TJobMap[K] }
   ): Promise<string> {
+    const { payload, ...options } = request;
+    
     const meta: JobMeta = {
-      ttr: options?.ttr ?? this.ttrDefault,
-      delay: (options as any)?.delay ?? 0,
-      priority: (options as any)?.priority ?? 0,
+      ttr: options.ttr ?? this.ttrDefault,
+      delay: (options as any).delay ?? 0,
+      priority: (options as any).priority ?? 0,
       pushedAt: new Date()
     };
 

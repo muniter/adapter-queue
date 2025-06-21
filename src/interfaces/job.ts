@@ -28,7 +28,7 @@ export type QueueEvent =
   | { type: 'afterExec'; id: string; name: string; payload: any; meta: JobMeta; result: any }
   | { type: 'afterError'; id: string; name: string; payload: any; meta: JobMeta; error: unknown };
 
-// Base options supported by all drivers
+// Base options supported by all drivers (without payload)
 export interface BaseJobOptions {
   ttr?: number;
 }
@@ -39,7 +39,7 @@ export interface JobOptions extends BaseJobOptions {
   priority?: number;
 }
 
-// Driver-specific options interfaces
+// Driver-specific options interfaces (without payload)
 export interface DbJobOptions extends BaseJobOptions {
   // DB adapters may or may not support delay/priority - we allow them for flexibility
   // The specific DatabaseAdapter implementation determines actual support
@@ -57,5 +57,22 @@ export interface FileJobOptions extends BaseJobOptions {
   delay?: number;
   // File queue implements delay functionality  
   // Priority ordering is not implemented in current FileQueue
+}
+
+// Combined interfaces that include payload for the new API
+export interface BaseJobRequest<TPayload> extends BaseJobOptions {
+  payload: TPayload;
+}
+
+export interface DbJobRequest<TPayload> extends DbJobOptions {
+  payload: TPayload;
+}
+
+export interface SqsJobRequest<TPayload> extends SqsJobOptions {
+  payload: TPayload;
+}
+
+export interface FileJobRequest<TPayload> extends FileJobOptions {
+  payload: TPayload;
 }
 

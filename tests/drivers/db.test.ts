@@ -18,7 +18,7 @@ describe('DbQueue', () => {
 
   describe('addJob and reserve cycle', () => {
     it('should add and reserve a job successfully', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test data' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test data' } });
       expect(id).toBeTruthy();
 
       const reserved = await queue['reserve'](0);
@@ -27,7 +27,10 @@ describe('DbQueue', () => {
     });
 
     it('should accept job delay in options', async () => {
-      const id = await queue.addJob('simple-job', { data: 'delayed job' }, { delay: 5 });
+      const id = await queue.addJob('simple-job', { 
+        payload: { data: 'delayed job' }, 
+        delay: 5 
+      });
       
       const immediateReserve = await queue['reserve'](0);
       expect(immediateReserve).toBeNull();
@@ -43,8 +46,8 @@ describe('DbQueue', () => {
         processedJobs.push(payload.data);
       });
 
-      await queue.addJob('simple-job', { data: 'test1' });
-      await queue.addJob('simple-job', { data: 'test2' });
+      await queue.addJob('simple-job', { payload: { data: 'test1' } });
+      await queue.addJob('simple-job', { payload: { data: 'test2' } });
 
       // Process jobs once
       await queue.run(false);
@@ -67,7 +70,7 @@ describe('DbQueue', () => {
         errors.push(event.error);
       });
 
-      await queue.addJob('failing-job', { shouldFail: true });
+      await queue.addJob('failing-job', { payload: { shouldFail: true } });
       await queue.run(false);
 
       expect(errors).toHaveLength(1);
@@ -77,7 +80,7 @@ describe('DbQueue', () => {
 
   describe('job status', () => {
     it('should track job status correctly', async () => {
-      const id = await queue.addJob('simple-job', { data: 'status test' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'status test' } });
       
       // Initially waiting
       expect(await queue.status(id)).toBe('waiting');
@@ -94,7 +97,8 @@ describe('DbQueue', () => {
 
   describe('job options', () => {
     it('should support job options for all features', async () => {
-      const id = await queue.addJob('simple-job', { data: 'options job' }, { 
+      const id = await queue.addJob('simple-job', { 
+        payload: { data: 'options job' },
         ttr: 600, 
         delay: 30, 
         priority: 5 

@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.js';
-import type { QueueMessage, JobMeta, JobStatus, FileJobOptions } from '../interfaces/job.js';
+import type { QueueMessage, JobMeta, JobStatus, FileJobRequest } from '../interfaces/job.js';
 
 interface IndexData {
   lastId: number;
@@ -23,7 +23,7 @@ interface FileQueueOptions {
   fileMode?: number;
 }
 
-export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, FileJobOptions> {
+export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, FileJobRequest<any>> {
   private path: string;
   private dirMode: number;
   private fileMode?: number;

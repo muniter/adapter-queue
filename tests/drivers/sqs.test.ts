@@ -18,7 +18,7 @@ describe('SqsQueue', () => {
 
   describe('addJob and reserve cycle', () => {
     it('should add and reserve a job successfully', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test data' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test data' } });
       expect(id).toBeTruthy();
 
       const reserved = await queue['reserve'](0);
@@ -27,7 +27,11 @@ describe('SqsQueue', () => {
     });
 
     it('should handle message attributes correctly', async () => {
-      await queue.addJob('simple-job', { data: 'test' }, { ttr: 600, delay: 30 });
+      await queue.addJob('simple-job', { 
+        payload: { data: 'test' }, 
+        ttr: 600, 
+        delay: 30 
+      });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const sentMessage = sqsClient.sentMessages[0];
@@ -36,7 +40,10 @@ describe('SqsQueue', () => {
     });
 
     it('should respect delay seconds', async () => {
-      await queue.addJob('simple-job', { data: 'delayed' }, { delay: 30 });
+      await queue.addJob('simple-job', { 
+        payload: { data: 'delayed' }, 
+        delay: 30 
+      });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const message = sqsClient.sentMessages[0];
@@ -50,8 +57,8 @@ describe('SqsQueue', () => {
         processedJobs.push(payload.data);
       });
 
-      await queue.addJob('simple-job', { data: 'test1' });
-      await queue.addJob('simple-job', { data: 'test2' });
+      await queue.addJob('simple-job', { payload: { data: 'test1' } });
+      await queue.addJob('simple-job', { payload: { data: 'test2' } });
 
       // Process jobs once
       await queue.run(false);
@@ -62,7 +69,7 @@ describe('SqsQueue', () => {
 
   describe('message lifecycle', () => {
     it('should delete message on successful release', async () => {
-      const id = await queue.addJob('simple-job', { data: 'test' });
+      const id = await queue.addJob('simple-job', { payload: { data: 'test' } });
       const reserved = await queue['reserve'](0);
       
       expect(reserved).not.toBeNull();

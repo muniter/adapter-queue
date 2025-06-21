@@ -92,25 +92,34 @@ async function main() {
   
   // TypeScript will provide full autocomplete and type checking
   const emailJobId = await queue.addJob('send-email', {
-    to: 'user@example.com',
-    subject: 'Welcome!',
-    body: 'Thanks for signing up!'
+    payload: {
+      to: 'user@example.com',
+      subject: 'Welcome!',
+      body: 'Thanks for signing up!'
+    }
   });
   console.log(`Added email job: ${emailJobId}`);
 
   // Job with delay using options
   const delayedImageJobId = await queue.addJob('resize-image', {
-    url: 'https://example.com/image.jpg',
-    width: 800,
-    height: 600
-  }, { delay: 3 });
+    payload: {
+      url: 'https://example.com/image.jpg',
+      width: 800,
+      height: 600
+    },
+    delay: 3
+  });
   console.log(`Added delayed image job: ${delayedImageJobId}`);
 
-  // Job with high priority and custom TTR
+  // Job with custom TTR (FileQueue doesn't support priority)
   const reportJobId = await queue.addJob('generate-report', {
-    type: 'monthly',
-    period: 'December 2024'
-  }, { ttr: 300, priority: 10 });
+    payload: {
+      type: 'monthly',
+      period: 'December 2024'
+    },
+    ttr: 300
+    // Note: FileQueue doesn't support priority - would cause TypeScript error
+  });
   console.log(`Added priority report job: ${reportJobId}`);
 
   // Check job statuses

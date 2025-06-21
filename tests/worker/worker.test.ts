@@ -25,7 +25,7 @@ describe('Worker', () => {
         processedJobs.push(payload.data);
       });
 
-      await queue.addJob('simple-job', { data: 'worker test' });
+      await queue.addJob('simple-job', { payload: { data: 'worker test' } });
 
       const afterExecSpy = vi.fn();
       queue.on('afterExec', afterExecSpy);
@@ -47,7 +47,7 @@ describe('Worker', () => {
 
       // Add multiple jobs
       for (let i = 0; i < 5; i++) {
-        await queue.addJob('worker-job', { message: `job${i}` });
+        await queue.addJob('worker-job', { payload: { message: `job${i}` } });
       }
 
       const worker1 = new Worker(queue);
@@ -70,7 +70,7 @@ describe('Worker', () => {
         processedJobs.push(payload.data);
       });
 
-      await queue.addJob('simple-job', { data: 'isolated test' });
+      await queue.addJob('simple-job', { payload: { data: 'isolated test' } });
 
       const worker = new Worker(queue, { isolate: true });
       await worker.start(false, 1);
@@ -106,8 +106,8 @@ describe('Worker', () => {
       });
 
       // Add jobs
-      await queue.addJob('worker-job', { message: 'concurrent1' });
-      await queue.addJob('worker-job', { message: 'concurrent2' });
+      await queue.addJob('worker-job', { payload: { message: 'concurrent1' } });
+      await queue.addJob('worker-job', { payload: { message: 'concurrent2' } });
 
       const worker = new Worker(queue);
       await worker.start(false, 1);
@@ -126,7 +126,7 @@ describe('Worker', () => {
       queue.on('beforeExec', () => events.push('beforeExec'));
       queue.on('afterExec', () => events.push('afterExec'));
 
-      await queue.addJob('simple-job', { data: 'event test' });
+      await queue.addJob('simple-job', { payload: { data: 'event test' } });
 
       const worker = new Worker(queue);
       await worker.start(false, 1);

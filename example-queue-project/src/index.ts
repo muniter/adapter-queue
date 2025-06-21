@@ -72,29 +72,40 @@ async function main() {
 
   // Add jobs using the new type-safe API
   const emailJobId1 = await emailQueue.addJob('welcome-email', {
-    to: 'user@example.com',
-    name: 'John Doe'
+    payload: {
+      to: 'user@example.com',
+      name: 'John Doe'
+    }
   });
   console.log(`Welcome email job added with ID: ${emailJobId1}`);
 
   const emailJobId2 = await emailQueue.addJob('notification', {
-    to: 'admin@example.com',
-    subject: 'Daily Report',
-    body: 'Here is your daily report...'
-  }, { priority: 10 });
+    payload: {
+      to: 'admin@example.com',
+      subject: 'Daily Report',
+      body: 'Here is your daily report...'
+    }
+    // Note: FileQueue doesn't support priority - would cause TypeScript error
+    // For demo purposes, we removed the priority option
+  });
   console.log(`Priority notification job added with ID: ${emailJobId2}`);
 
   const imageJobId = await generalQueue.addJob('process-image', {
-    url: 'https://example.com/image.jpg',
-    width: 800,
-    height: 600
+    payload: {
+      url: 'https://example.com/image.jpg',
+      width: 800,
+      height: 600
+    }
   });
   console.log(`Image job added with ID: ${imageJobId}`);
 
   const reportJobId = await generalQueue.addJob('generate-report', {
-    type: 'sales',
-    period: 'Q4-2023'
-  }, { delay: 2 });
+    payload: {
+      type: 'sales',
+      period: 'Q4-2023'
+    },
+    delay: 2
+  });
   console.log(`Delayed report job added with ID: ${reportJobId}`);
 
   // Add event listeners for both queues

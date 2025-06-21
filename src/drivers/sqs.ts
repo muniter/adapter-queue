@@ -1,5 +1,5 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage, SqsJobOptions } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, SqsJobRequest } from '../interfaces/job.ts';
 
 export interface SQSClient {
   sendMessage(params: {
@@ -33,7 +33,7 @@ export interface SQSClient {
   }): Promise<void>;
 }
 
-export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJobOptions> {
+export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJobRequest<any>> {
   constructor(
     private client: SQSClient,
     private queueUrl: string,
