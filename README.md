@@ -4,7 +4,7 @@ A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean
 
 ## Features
 
-- **Driver-based architecture**: Swap between DB and SQS drivers seamlessly
+- **Driver-based architecture**: Swap between DB, SQS, and File drivers seamlessly
 - **Type-safe jobs**: Full TypeScript support with proper serialization
 - **Retry logic**: Built-in retry mechanisms with customizable strategies  
 - **Event system**: Hook into queue lifecycle events
@@ -165,7 +165,28 @@ const isolatedWorker = new Worker(queue, { isolate: true });
 await isolatedWorker.start();
 ```
 
-## SQS Driver
+## Queue Drivers
+
+### File Driver
+
+A simple file-based queue that stores jobs as files on disk. Perfect for development and small applications.
+
+```typescript
+import { FileQueue } from '@muniter/queue';
+
+const queue = new FileQueue({
+  path: './queue-data',    // Directory to store queue files
+  dirMode: 0o755,         // Directory permissions (optional)
+  fileMode: 0o644         // File permissions (optional)
+});
+
+// Initialize the queue (creates directory if needed)
+await queue.init();
+
+await queue.push(new EmailJob('user@example.com', 'Test', 'Via File Queue'));
+```
+
+### SQS Driver
 
 ```typescript
 import { SQSClient } from '@aws-sdk/client-sqs';

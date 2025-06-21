@@ -7,8 +7,8 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     const result = await run(
       `INSERT INTO jobs (
         payload, ttr, delay, priority, push_time, 
-        delay_time, attempt, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        delay_time, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         payload,
         meta.ttr || 300,
@@ -16,7 +16,6 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
         meta.priority || 0,
         now.getTime(),
         meta.delay ? now.getTime() + meta.delay * 1000 : null,
-        meta.attempt || 0,
         'waiting'
       ]
     ) as any;
@@ -54,13 +53,11 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
         ttr: job.ttr,
         delay: job.delay,
         priority: job.priority,
-        attempt: job.attempt,
         pushedAt: new Date(job.push_time),
         reservedAt: new Date(now)
       },
       pushedAt: new Date(job.push_time),
-      reservedAt: new Date(now),
-      attempt: job.attempt
+      reservedAt: new Date(now)
     };
   }
 
@@ -112,18 +109,12 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
       case 'done':
         return 'done';
       case 'failed':
-        return 'failed';
+        return 'done';
       default:
         return null;
     }
   }
 
-  async updateJobAttempt(id: string, attempt: number): Promise<void> {
-    await run(
-      `UPDATE jobs SET attempt = ? WHERE id = ?`,
-      [attempt, parseInt(id)]
-    );
-  }
 
   async deleteJob(id: string): Promise<void> {
     await run(`DELETE FROM jobs WHERE id = ?`, [parseInt(id)]);

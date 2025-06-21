@@ -51,7 +51,7 @@ async function main() {
     process.exit(0);
   });
 
-  await queue.run(true, 30);
+  await queue.run(true, 1);
 }
 
 main().catch(console.error);

@@ -34,6 +34,7 @@ The CLI worker supports these arguments:
 2. **Drivers**: Storage-specific implementations
    - **DbQueue** (`src/drivers/db.ts`): Database-backed queue using DatabaseAdapter interface
    - **SqsQueue** (`src/drivers/sqs.ts`): Amazon SQS-backed queue
+   - **FileQueue** (`src/drivers/file.ts`): File-based queue storing jobs as individual files with JSON index
 3. **Jobs**: Units of work implementing the `Job<T>` interface with `execute(queue: Queue)` method
 4. **Workers**: Long-running processes that consume and execute jobs
 5. **Serialization**: Pluggable serialization system for job payloads

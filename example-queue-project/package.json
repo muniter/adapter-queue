@@ -13,6 +13,7 @@
     "process-jobs": "tsx src/process-jobs.ts"
   },
   "dependencies": {
+    "@muniter/queue": "file:..",
     "sqlite3": "^5.1.6",
     "dotenv": "^16.3.1"
   },

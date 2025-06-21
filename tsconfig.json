@@ -26,6 +26,7 @@
     "erasableSyntaxOnly": false,
 
     "sourceMap": true,
+    "declaration": true,
     /* If your code doesn't run in the DOM: */
     "lib": ["es2022"],
   },
