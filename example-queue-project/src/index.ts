@@ -77,13 +77,11 @@ async function main() {
   });
   console.log(`Welcome email job added with ID: ${emailJobId1}`);
 
-  const emailJobId2 = await emailQueue
-    .priority(10)
-    .addJob('notification', {
-      to: 'admin@example.com',
-      subject: 'Daily Report',
-      body: 'Here is your daily report...'
-    });
+  const emailJobId2 = await emailQueue.addJob('notification', {
+    to: 'admin@example.com',
+    subject: 'Daily Report',
+    body: 'Here is your daily report...'
+  }, { priority: 10 });
   console.log(`Priority notification job added with ID: ${emailJobId2}`);
 
   const imageJobId = await generalQueue.addJob('process-image', {
@@ -93,12 +91,10 @@ async function main() {
   });
   console.log(`Image job added with ID: ${imageJobId}`);
 
-  const reportJobId = await generalQueue
-    .delay(2)
-    .addJob('generate-report', {
-      type: 'sales',
-      period: 'Q4-2023'
-    });
+  const reportJobId = await generalQueue.addJob('generate-report', {
+    type: 'sales',
+    period: 'Q4-2023'
+  }, { delay: 2 });
   console.log(`Delayed report job added with ID: ${reportJobId}`);
 
   // Add event listeners for both queues

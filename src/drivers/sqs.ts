@@ -1,5 +1,5 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, SupportsDelay } from '../interfaces/job.ts';
 
 export interface SQSClient {
   sendMessage(params: {
@@ -33,13 +33,18 @@ export interface SQSClient {
   }): Promise<void>;
 }
 
-export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
+export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> implements SupportsDelay<TJobMap> {
   constructor(
     private client: SQSClient,
     private queueUrl: string,
     options: { ttrDefault?: number } = {}
   ) {
     super(options);
+  }
+
+  delay(seconds: number): this {
+    this.pushOpts.delay = seconds;
+    return this;
   }
 
   protected async pushMessage(payload: Buffer, meta: JobMeta): Promise<string> {

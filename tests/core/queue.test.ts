@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Queue } from '../../src/core/queue.ts';
-import { JobMeta, QueueMessage } from '../../src/interfaces/job.ts';
+import { JobMeta, QueueMessage, SupportsDelay, SupportsPriority } from '../../src/interfaces/job.ts';
 
 interface TestJobs {
   'test-job': { data: string };
   'math-job': { a: number; b: number };
 }
 
-class TestQueue extends Queue<TestJobs> {
+class TestQueue extends Queue<TestJobs> implements SupportsDelay<TestJobs>, SupportsPriority<TestJobs> {
   public messages: Array<{ payload: Buffer; meta: JobMeta; id: string }> = [];
   private nextId = 1;
 
@@ -35,6 +35,16 @@ class TestQueue extends Queue<TestJobs> {
 
   async status(id: string): Promise<'waiting' | 'reserved' | 'done'> {
     return 'done';
+  }
+
+  delay(seconds: number): this {
+    this.pushOpts.delay = seconds;
+    return this;
+  }
+
+  priority(priority: number): this {
+    this.pushOpts.priority = priority;
+    return this;
   }
 }
 

@@ -29,13 +29,13 @@ describe('SqsQueue', () => {
     it('should handle message attributes correctly', async () => {
       await queue
         .ttr(600)
-        .priority(5)
+        .delay(30)
         .addJob('simple-job', { data: 'test' });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
-      const message = sqsClient.sentMessages[0];
-      expect(message.MessageAttributes?.ttr?.StringValue).toBe('600');
-      expect(message.MessageAttributes?.priority?.StringValue).toBe('5');
+      const sentMessage = sqsClient.sentMessages[0];
+      expect(sentMessage.MessageAttributes?.ttr?.StringValue).toBe('600');
+      expect(sentMessage.DelaySeconds).toBe(30);
     });
 
     it('should respect delay seconds', async () => {

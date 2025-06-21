@@ -108,14 +108,13 @@ async function main() {
     });
   console.log(`Added delayed image job: ${delayedImageJobId}`);
 
-  // Job with high priority and custom TTR
+  // Job with high priority and custom TTR (using options since FileQueue doesn't support priority fluent method)
   const reportJobId = await queue
-    .priority(10)
     .ttr(300)
     .addJob('generate-report', {
       type: 'monthly',
       period: 'December 2024'
-    });
+    }, { priority: 10 });
   console.log(`Added priority report job: ${reportJobId}`);
 
   // Check job statuses

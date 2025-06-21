@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, SupportsTTR } from '../interfaces/job.ts';
 
 /**
  * Abstract queue class providing event-based job processing with fluent API.
@@ -27,9 +27,9 @@ import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions 
  * await queue.run();
  * ```
  */
-export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter {
+export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter implements SupportsTTR<TJobMap> {
   protected ttrDefault = 300;
-  private pushOpts: Partial<JobOptions> = {};
+  protected pushOpts: Partial<JobOptions> = {};
 
   /**
    * Creates a new Queue instance.
@@ -42,7 +42,7 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
     if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
   }
 
-  // Fluent API methods
+  // Core fluent API method (supported by all drivers)
   
   /**
    * Sets the time-to-run (TTR) for the next job to be added.
@@ -58,40 +58,6 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
    */
   ttr(value: number): this {
     this.pushOpts.ttr = value;
-    return this;
-  }
-
-  /**
-   * Sets a delay for the next job to be added.
-   * The job will not be available for processing until the delay has elapsed.
-   * 
-   * @param seconds - Delay in seconds
-   * @returns This queue instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await queue.delay(60).addJob('delayed-email', { to: 'user@example.com' });
-   * ```
-   */
-  delay(seconds: number): this {
-    this.pushOpts.delay = seconds;
-    return this;
-  }
-
-  /**
-   * Sets the priority for the next job to be added.
-   * Higher priority jobs are processed before lower priority ones.
-   * 
-   * @param priority - Priority value (higher numbers = higher priority)
-   * @returns This queue instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await queue.priority(10).addJob('urgent-task', { alert: 'critical' });
-   * ```
-   */
-  priority(priority: number): this {
-    this.pushOpts.priority = priority;
     return this;
   }
 
@@ -113,11 +79,11 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
    *   body: 'World' 
    * });
    * 
-   * // With fluent API
-   * await queue.delay(60).priority(5).addJob('delayed-task', { data: 'important' });
+   * // With fluent API (TTR supported by all drivers)
+   * await queue.ttr(600).addJob('long-task', { data: 'important' });
    * 
    * // With options parameter
-   * await queue.addJob('backup', { path: '/data' }, { ttr: 3600, priority: 1 });
+   * await queue.addJob('backup', { path: '/data' }, { ttr: 3600, delay: 60 });
    * ```
    */
   async addJob<K extends keyof TJobMap>(

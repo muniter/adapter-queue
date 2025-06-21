@@ -26,8 +26,8 @@ describe('DbQueue', () => {
       expect(reserved!.id).toBe(id);
     });
 
-    it('should respect job delay', async () => {
-      const id = await queue.delay(5).addJob('simple-job', { data: 'delayed job' });
+    it('should accept job delay in options', async () => {
+      const id = await queue.addJob('simple-job', { data: 'delayed job' }, { delay: 5 });
       
       const immediateReserve = await queue['reserve'](0);
       expect(immediateReserve).toBeNull();
@@ -93,12 +93,23 @@ describe('DbQueue', () => {
   });
 
   describe('fluent interface', () => {
-    it('should chain configuration methods', async () => {
+    it('should support TTR fluent method (supported by all drivers)', async () => {
       const id = await queue
         .ttr(600)
-        .delay(30)
-        .priority(5)
-        .addJob('simple-job', { data: 'chained job' });
+        .addJob('simple-job', { data: 'ttr job' });
+
+      expect(id).toBeTruthy();
+      
+      const job = dbAdapter.jobsArray.find(j => j.id === id);
+      expect(job!.meta.ttr).toBe(600);
+    });
+
+    it('should support options for unsupported fluent methods', async () => {
+      const id = await queue.addJob('simple-job', { data: 'options job' }, { 
+        ttr: 600, 
+        delay: 30, 
+        priority: 5 
+      });
 
       expect(id).toBeTruthy();
       
