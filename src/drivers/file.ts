@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.js';
-import type { QueueMessage, JobMeta, JobStatus, SupportsDelay } from '../interfaces/job.js';
+import type { QueueMessage, JobMeta, JobStatus, FileJobOptions } from '../interfaces/job.js';
 
 interface IndexData {
   lastId: number;
@@ -23,7 +23,7 @@ interface FileQueueOptions {
   fileMode?: number;
 }
 
-export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> implements SupportsDelay<TJobMap> {
+export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, FileJobOptions> {
   private path: string;
   private dirMode: number;
   private fileMode?: number;
@@ -35,11 +35,6 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> imp
     this.dirMode = options.dirMode ?? 0o755;
     this.fileMode = options.fileMode;
     this.indexPath = path.join(this.path, 'index.json');
-  }
-
-  delay(seconds: number): this {
-    this.pushOpts.delay = seconds;
-    return this;
   }
 
   async init(): Promise<void> {

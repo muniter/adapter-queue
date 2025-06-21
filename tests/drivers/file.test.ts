@@ -55,7 +55,7 @@ describe('FileQueue', () => {
     });
 
     it('should add delayed job to delayed queue', async () => {
-      const id = await queue.delay(10).addJob('delayed-job', { message: 'test payload' });
+      const id = await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 10 });
       
       const status = await queue.status(id);
       expect(status).toBe('waiting');
@@ -85,7 +85,7 @@ describe('FileQueue', () => {
     });
 
     it('should respect delay', async () => {
-      await queue.delay(2).addJob('delayed-job', { message: 'test payload' });
+      await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 2 });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).toBeNull();
@@ -97,7 +97,7 @@ describe('FileQueue', () => {
     });
 
     it('should handle TTR timeout', async () => {
-      await queue.ttr(1).addJob('simple-job', { data: 'test payload' });
+      await queue.addJob('simple-job', { data: 'test payload' }, { ttr: 1 });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).not.toBeNull();
@@ -137,7 +137,7 @@ describe('FileQueue', () => {
     it('should remove all jobs', async () => {
       await queue.addJob('simple-job', { data: 'job1' });
       await queue.addJob('simple-job', { data: 'job2' });
-      await queue.delay(10).addJob('delayed-job', { message: 'job3' });
+      await queue.addJob('delayed-job', { message: 'job3' }, { delay: 10 });
 
       await queue.clear();
 
@@ -162,7 +162,7 @@ describe('FileQueue', () => {
     });
 
     it('should remove specific job from delayed', async () => {
-      const id = await queue.delay(10).addJob('delayed-job', { message: 'test payload' });
+      const id = await queue.addJob('delayed-job', { message: 'test payload' }, { delay: 10 });
 
       const removed = await queue.remove(id);
       expect(removed).toBe(true);

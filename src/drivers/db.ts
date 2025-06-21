@@ -1,8 +1,8 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage, SupportsTTR } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, DbJobOptions } from '../interfaces/job.ts';
 import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
 
-export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
+export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJobOptions> {
   constructor(
     private db: DatabaseAdapter,
     options: { ttrDefault?: number } = {}

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, SupportsTTR } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobOptions } from '../interfaces/job.ts';
 
 /**
  * Abstract queue class providing event-based job processing with fluent API.
@@ -27,9 +27,8 @@ import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions,
  * await queue.run();
  * ```
  */
-export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter implements SupportsTTR<TJobMap> {
+export abstract class Queue<TJobMap = Record<string, any>, TJobOptions extends BaseJobOptions = BaseJobOptions> extends EventEmitter {
   protected ttrDefault = 300;
-  protected pushOpts: Partial<JobOptions> = {};
 
   /**
    * Creates a new Queue instance.
@@ -42,24 +41,6 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
     if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
   }
 
-  // Core fluent API method (supported by all drivers)
-  
-  /**
-   * Sets the time-to-run (TTR) for the next job to be added.
-   * TTR is the maximum time in seconds a job can run before it's considered timed out.
-   * 
-   * @param value - TTR in seconds
-   * @returns This queue instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await queue.ttr(600).addJob('long-task', { data: 'will timeout after 10 minutes' });
-   * ```
-   */
-  ttr(value: number): this {
-    this.pushOpts.ttr = value;
-    return this;
-  }
 
   /**
    * Adds a new job to the queue with type-safe payload validation.
@@ -67,7 +48,7 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
    * @template K - The job name type from TJobMap
    * @param name - The name of the job type to add
    * @param payload - The job payload data, automatically typed based on the job name
-   * @param options - Optional job configuration (overrides fluent API settings)
+   * @param options - Optional job configuration
    * @returns Promise that resolves to the unique job ID
    * 
    * @example
@@ -79,9 +60,6 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
    *   body: 'World' 
    * });
    * 
-   * // With fluent API (TTR supported by all drivers)
-   * await queue.ttr(600).addJob('long-task', { data: 'important' });
-   * 
    * // With options parameter
    * await queue.addJob('backup', { path: '/data' }, { ttr: 3600, delay: 60 });
    * ```
@@ -89,17 +67,14 @@ export abstract class Queue<TJobMap = Record<string, any>> extends EventEmitter 
   async addJob<K extends keyof TJobMap>(
     name: K,
     payload: TJobMap[K],
-    options?: JobOptions
+    options?: TJobOptions
   ): Promise<string> {
     const meta: JobMeta = {
-      ttr: options?.ttr ?? this.pushOpts.ttr ?? this.ttrDefault,
-      delay: options?.delay ?? this.pushOpts.delay ?? 0,
-      priority: options?.priority ?? this.pushOpts.priority ?? 0,
+      ttr: options?.ttr ?? this.ttrDefault,
+      delay: (options as any)?.delay ?? 0,
+      priority: (options as any)?.priority ?? 0,
       pushedAt: new Date()
     };
-
-    // Reset fluent options after use
-    this.pushOpts = {};
 
     const event: QueueEvent = { type: 'beforePush', name: name as string, payload, meta };
     this.emit('beforePush', event);

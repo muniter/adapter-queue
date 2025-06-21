@@ -28,42 +28,34 @@ export type QueueEvent =
   | { type: 'afterExec'; id: string; name: string; payload: any; meta: JobMeta; result: any }
   | { type: 'afterError'; id: string; name: string; payload: any; meta: JobMeta; error: unknown };
 
-export interface JobOptions {
+// Base options supported by all drivers
+export interface BaseJobOptions {
   ttr?: number;
+}
+
+// Full options interface (for internal use)
+export interface JobOptions extends BaseJobOptions {
   delay?: number;
   priority?: number;
 }
 
-// Feature interfaces for optional queue capabilities
-export interface SupportsPriority<TJobMap> {
-  /**
-   * Sets the priority for the next job to be added.
-   * Higher priority jobs are processed before lower priority ones.
-   * 
-   * @param priority - Priority value (higher numbers = higher priority)
-   * @returns This queue instance for method chaining
-   */
-  priority(priority: number): this;
+// Driver-specific options interfaces
+export interface DbJobOptions extends BaseJobOptions {
+  // DB adapters may or may not support delay/priority - we allow them for flexibility
+  // The specific DatabaseAdapter implementation determines actual support
+  delay?: number;
+  priority?: number;
 }
 
-export interface SupportsDelay<TJobMap> {
-  /**
-   * Sets a delay for the next job to be added.
-   * The job will not be available for processing until the delay has elapsed.
-   * 
-   * @param seconds - Delay in seconds
-   * @returns This queue instance for method chaining
-   */
-  delay(seconds: number): this;
+export interface SqsJobOptions extends BaseJobOptions {
+  delay?: number;
+  // SQS supports delay natively via DelaySeconds
+  // Priority is not supported (would require FIFO queues + message group IDs)
 }
 
-export interface SupportsTTR<TJobMap> {
-  /**
-   * Sets the time-to-run (TTR) for the next job to be added.
-   * TTR is the maximum time in seconds a job can run before it's considered timed out.
-   * 
-   * @param value - TTR in seconds
-   * @returns This queue instance for method chaining
-   */
-  ttr(value: number): this;
+export interface FileJobOptions extends BaseJobOptions {
+  delay?: number;
+  // File queue implements delay functionality  
+  // Priority ordering is not implemented in current FileQueue
 }
+

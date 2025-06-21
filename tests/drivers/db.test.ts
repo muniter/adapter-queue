@@ -92,19 +92,8 @@ describe('DbQueue', () => {
     });
   });
 
-  describe('fluent interface', () => {
-    it('should support TTR fluent method (supported by all drivers)', async () => {
-      const id = await queue
-        .ttr(600)
-        .addJob('simple-job', { data: 'ttr job' });
-
-      expect(id).toBeTruthy();
-      
-      const job = dbAdapter.jobsArray.find(j => j.id === id);
-      expect(job!.meta.ttr).toBe(600);
-    });
-
-    it('should support options for unsupported fluent methods', async () => {
+  describe('job options', () => {
+    it('should support job options for all features', async () => {
       const id = await queue.addJob('simple-job', { data: 'options job' }, { 
         ttr: 600, 
         delay: 30, 

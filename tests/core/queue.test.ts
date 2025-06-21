@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Queue } from '../../src/core/queue.ts';
-import { JobMeta, QueueMessage, SupportsDelay, SupportsPriority } from '../../src/interfaces/job.ts';
+import { JobMeta, QueueMessage } from '../../src/interfaces/job.ts';
 
 interface TestJobs {
   'test-job': { data: string };
   'math-job': { a: number; b: number };
 }
 
-class TestQueue extends Queue<TestJobs> implements SupportsDelay<TestJobs>, SupportsPriority<TestJobs> {
+class TestQueue extends Queue<TestJobs> {
   public messages: Array<{ payload: Buffer; meta: JobMeta; id: string }> = [];
   private nextId = 1;
 
@@ -36,16 +36,6 @@ class TestQueue extends Queue<TestJobs> implements SupportsDelay<TestJobs>, Supp
   async status(id: string): Promise<'waiting' | 'reserved' | 'done'> {
     return 'done';
   }
-
-  delay(seconds: number): this {
-    this.pushOpts.delay = seconds;
-    return this;
-  }
-
-  priority(priority: number): this {
-    this.pushOpts.priority = priority;
-    return this;
-  }
 }
 
 describe('Queue', () => {
@@ -64,20 +54,6 @@ describe('Queue', () => {
       expect(queue.messages[0].meta.ttr).toBe(300);
       expect(queue.messages[0].meta.delay).toBe(0);
       expect(queue.messages[0].meta.priority).toBe(0);
-    });
-
-    it('should add a job with custom settings using fluent API', async () => {
-      const id = await queue
-        .ttr(600)
-        .delay(30)
-        .priority(5)
-        .addJob('test-job', { data: 'test data' });
-
-      expect(id).toBe('1');
-      expect(queue.messages).toHaveLength(1);
-      expect(queue.messages[0].meta.ttr).toBe(600);
-      expect(queue.messages[0].meta.delay).toBe(30);
-      expect(queue.messages[0].meta.priority).toBe(5);
     });
 
     it('should add a job with custom settings using options parameter', async () => {
@@ -115,8 +91,8 @@ describe('Queue', () => {
       );
     });
 
-    it('should reset push options after each push', async () => {
-      await queue.ttr(600).addJob('test-job', { data: 'job1' });
+    it('should use default TTR when no options provided', async () => {
+      await queue.addJob('test-job', { data: 'job1' }, { ttr: 600 });
       await queue.addJob('test-job', { data: 'job2' });
 
       expect(queue.messages[0].meta.ttr).toBe(600);

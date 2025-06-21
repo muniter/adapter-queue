@@ -27,10 +27,7 @@ describe('SqsQueue', () => {
     });
 
     it('should handle message attributes correctly', async () => {
-      await queue
-        .ttr(600)
-        .delay(30)
-        .addJob('simple-job', { data: 'test' });
+      await queue.addJob('simple-job', { data: 'test' }, { ttr: 600, delay: 30 });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const sentMessage = sqsClient.sentMessages[0];
@@ -39,7 +36,7 @@ describe('SqsQueue', () => {
     });
 
     it('should respect delay seconds', async () => {
-      await queue.delay(30).addJob('simple-job', { data: 'delayed' });
+      await queue.addJob('simple-job', { data: 'delayed' }, { delay: 30 });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const message = sqsClient.sentMessages[0];

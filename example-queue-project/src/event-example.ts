@@ -98,23 +98,19 @@ async function main() {
   });
   console.log(`Added email job: ${emailJobId}`);
 
-  // Job with delay using fluent API
-  const delayedImageJobId = await queue
-    .delay(3)
-    .addJob('resize-image', {
-      url: 'https://example.com/image.jpg',
-      width: 800,
-      height: 600
-    });
+  // Job with delay using options
+  const delayedImageJobId = await queue.addJob('resize-image', {
+    url: 'https://example.com/image.jpg',
+    width: 800,
+    height: 600
+  }, { delay: 3 });
   console.log(`Added delayed image job: ${delayedImageJobId}`);
 
-  // Job with high priority and custom TTR (using options since FileQueue doesn't support priority fluent method)
-  const reportJobId = await queue
-    .ttr(300)
-    .addJob('generate-report', {
-      type: 'monthly',
-      period: 'December 2024'
-    }, { priority: 10 });
+  // Job with high priority and custom TTR
+  const reportJobId = await queue.addJob('generate-report', {
+    type: 'monthly',
+    period: 'December 2024'
+  }, { ttr: 300, priority: 10 });
   console.log(`Added priority report job: ${reportJobId}`);
 
   // Check job statuses
