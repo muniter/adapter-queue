@@ -3,6 +3,7 @@ import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.js';
 import type { QueueMessage, JobMeta, JobStatus } from '../interfaces/job.js';
+import type { Serializer } from '../core/serializer.js';
 
 interface IndexData {
   lastId: number;
@@ -21,6 +22,7 @@ interface FileQueueOptions {
   path: string;
   dirMode?: number;
   fileMode?: number;
+  serializer?: Serializer;
 }
 
 export class FileQueue extends Queue {
@@ -30,7 +32,7 @@ export class FileQueue extends Queue {
   private indexPath: string;
 
   constructor(options: FileQueueOptions) {
-    super();
+    super({ serializer: options.serializer });
     this.path = path.resolve(options.path);
     this.dirMode = options.dirMode ?? 0o755;
     this.fileMode = options.fileMode;
@@ -255,6 +257,9 @@ export class FileQueue extends Queue {
   }
 
   private async touchIndex<T>(callback: (data: IndexData) => Promise<T> | T): Promise<T> {
+    // Ensure directory exists first
+    await fs.mkdir(this.path, { recursive: true, mode: this.dirMode });
+    
     const lockPath = `${this.indexPath}.lock`;
     let lockHandle = null;
     let attempts = 0;

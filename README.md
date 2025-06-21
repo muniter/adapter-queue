@@ -180,9 +180,7 @@ const queue = new FileQueue({
   fileMode: 0o644         // File permissions (optional)
 });
 
-// Initialize the queue (creates directory if needed)
-await queue.init();
-
+// Queue auto-initializes on first use
 await queue.push(new EmailJob('user@example.com', 'Test', 'Via File Queue'));
 ```
 

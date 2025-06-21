@@ -12,7 +12,6 @@ describe('FileQueue', () => {
   beforeEach(async () => {
     testDir = path.join(os.tmpdir(), 'queue-test-' + Date.now());
     queue = new FileQueue({ path: testDir });
-    await queue.init();
   });
 
   afterEach(async () => {
@@ -23,13 +22,19 @@ describe('FileQueue', () => {
     }
   });
 
-  describe('init', () => {
-    it('should create queue directory', async () => {
+  describe('auto-initialization', () => {
+    it('should create queue directory on first push', async () => {
+      const job = new SimpleJob('test');
+      await queue.push(job);
+      
       const stats = await fs.stat(testDir);
       expect(stats.isDirectory()).toBe(true);
     });
 
-    it('should create index file', async () => {
+    it('should create index file on first push', async () => {
+      const job = new SimpleJob('test');
+      await queue.push(job);
+      
       const indexPath = path.join(testDir, 'index.json');
       const stats = await fs.stat(indexPath);
       expect(stats.isFile()).toBe(true);
@@ -102,7 +107,7 @@ describe('FileQueue', () => {
       expect(reserved1).not.toBeNull();
 
       // Wait for TTR to expire
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const reserved2 = await queue['reserve'](0);
       expect(reserved2).not.toBeNull();
