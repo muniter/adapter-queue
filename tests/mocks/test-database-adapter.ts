@@ -1,0 +1,76 @@
+import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '../../src/interfaces/database.ts';
+
+export class TestDatabaseAdapter implements DatabaseAdapter {
+  private jobs: Map<string, QueueJobRecord> = new Map();
+  private nextId = 1;
+
+  async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
+    const id = this.nextId.toString();
+    this.nextId++;
+
+    const job: QueueJobRecord = {
+      id,
+      payload,
+      meta,
+      pushedAt: new Date(),
+      attempt: meta.attempt || 0
+    };
+
+    this.jobs.set(id, job);
+    return id;
+  }
+
+  async reserveJob(timeout: number): Promise<QueueJobRecord | null> {
+    const now = new Date();
+    
+    for (const [id, job] of this.jobs.entries()) {
+      if (job.doneAt) continue;
+      if (job.reservedAt) continue;
+      
+      const delaySeconds = job.meta.delay || 0;
+      const delayUntil = new Date(job.pushedAt.getTime() + delaySeconds * 1000);
+      if (now < delayUntil) continue;
+
+      job.reservedAt = now;
+      this.jobs.set(id, job);
+      return { ...job };
+    }
+
+    return null;
+  }
+
+  async releaseJob(id: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (job) {
+      job.doneAt = new Date();
+      this.jobs.set(id, job);
+    }
+  }
+
+  async getJobStatus(id: string): Promise<JobStatus | null> {
+    const job = this.jobs.get(id);
+    if (!job) return null;
+    
+    if (job.doneAt) return 'done';
+    if (job.reservedAt) return 'reserved';
+    return 'waiting';
+  }
+
+  async updateJobAttempt(id: string, attempt: number): Promise<void> {
+    const job = this.jobs.get(id);
+    if (job) {
+      job.attempt = attempt;
+      job.meta.attempt = attempt;
+      this.jobs.set(id, job);
+    }
+  }
+
+  getAllJobs(): QueueJobRecord[] {
+    return Array.from(this.jobs.values());
+  }
+
+  clear(): void {
+    this.jobs.clear();
+    this.nextId = 1;
+  }
+}

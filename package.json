@@ -1,0 +1,52 @@
+{
+  "name": "@muniter/queue",
+  "version": "1.0.0",
+  "description": "A TypeScript queue system inspired by Yii2-Queue architecture",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "lint": "tsc --noEmit",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build && npm test",
+    "queue:worker": "node dist/cli/worker.js",
+    "queue:worker:isolate": "node dist/cli/worker.js --isolate"
+  },
+  "keywords": [
+    "queue",
+    "job",
+    "worker",
+    "sqs",
+    "database",
+    "typescript",
+    "yii2-queue"
+  ],
+  "author": "",
+  "license": "MIT",
+  "files": [
+    "dist/**/*",
+    "src/**/*",
+    "README.md",
+    "package.json"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-sqs": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-sqs": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

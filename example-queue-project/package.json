@@ -1,0 +1,25 @@
+{
+  "name": "example-queue-project",
+  "version": "1.0.0",
+  "description": "Example project demonstrating queue package with SQLite",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "add-job": "tsx src/add-job.ts",
+    "process-jobs": "tsx src/process-jobs.ts"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/sqlite3": "^3.1.11",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}
