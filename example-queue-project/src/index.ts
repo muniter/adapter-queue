@@ -72,7 +72,6 @@ async function push() {
   });
 
   console.log('\nStarting workers...');
-  console.log('Queue workers are running. Press Ctrl+C to exit.');
 
   process.on('SIGINT', () => {
     console.log('\nShutting down gracefully...');
