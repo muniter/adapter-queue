@@ -11,12 +11,17 @@
     "start": "node dist/index.js",
     "push": "tsx src/index.ts --push",
     "run": "tsx src/index.ts --run",
-    "demo": "echo 'Run \"npm run run\" in one terminal, then \"npm run push\" in another!'"
+    "demo": "echo 'Run \"npm run run\" in one terminal, then \"npm run push\" in another!'",
+    "redis:start": "docker-compose up -d redis",
+    "redis:stop": "docker-compose down",
+    "redis:ui": "docker-compose up -d redis-commander",
+    "redis:logs": "docker-compose logs -f redis"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.831.0",
     "@muniter/queue": "file:..",
     "dotenv": "^16.3.1",
+    "redis": "^4.6.0",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {
