@@ -1,13 +1,3 @@
-export interface Job<T = any> {
-  execute(queue: Queue): Promise<T> | T;
-}
-
-export interface Queue {
-  push(job: Job): Promise<string>;
-  status(id: string): Promise<JobStatus>;
-  run(repeat?: boolean, timeout?: number): Promise<void>;
-}
-
 export type JobStatus = 'waiting' | 'reserved' | 'done';
 
 export interface JobMeta {
@@ -26,9 +16,20 @@ export interface QueueMessage {
   meta: JobMeta;
 }
 
+export interface JobData {
+  name: string;
+  payload: any;
+}
+
 export type QueueEvent = 
-  | { type: 'beforePush'; job: Job; meta: JobMeta }
-  | { type: 'afterPush'; id: string; job: Job; meta: JobMeta }
-  | { type: 'beforeExec'; id: string; job: Job; meta: JobMeta }
-  | { type: 'afterExec'; id: string; job: Job; meta: JobMeta; result: any }
-  | { type: 'afterError'; id: string; job: Job; meta: JobMeta; error: unknown };
+  | { type: 'beforePush'; name: string; payload: any; meta: JobMeta }
+  | { type: 'afterPush'; id: string; name: string; payload: any; meta: JobMeta }
+  | { type: 'beforeExec'; id: string; name: string; payload: any; meta: JobMeta }
+  | { type: 'afterExec'; id: string; name: string; payload: any; meta: JobMeta; result: any }
+  | { type: 'afterError'; id: string; name: string; payload: any; meta: JobMeta; error: unknown };
+
+export interface JobOptions {
+  ttr?: number;
+  delay?: number;
+  priority?: number;
+}

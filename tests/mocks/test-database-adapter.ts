@@ -3,6 +3,11 @@ import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '../../src/i
 export class TestDatabaseAdapter implements DatabaseAdapter {
   private jobs: Map<string, QueueJobRecord> = new Map();
   private nextId = 1;
+  
+  // Expose jobs for testing
+  get jobsArray(): QueueJobRecord[] {
+    return Array.from(this.jobs.values());
+  }
 
   async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
     const id = this.nextId.toString();

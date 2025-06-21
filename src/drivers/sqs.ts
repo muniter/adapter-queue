@@ -33,11 +33,11 @@ export interface SQSClient {
   }): Promise<void>;
 }
 
-export class SqsQueue extends Queue {
+export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
   constructor(
     private client: SQSClient,
     private queueUrl: string,
-    options: { serializer?: any; ttrDefault?: number } = {}
+    options: { ttrDefault?: number } = {}
   ) {
     super(options);
   }

@@ -3,15 +3,19 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import { FileQueue } from '../../src/drivers/file.js';
-import { SimpleJob } from '../jobs/test-job.js';
+
+interface TestJobs {
+  'simple-job': { data: string };
+  'delayed-job': { message: string };
+}
 
 describe('FileQueue', () => {
-  let queue: FileQueue;
+  let queue: FileQueue<TestJobs>;
   let testDir: string;
 
   beforeEach(async () => {
     testDir = path.join(os.tmpdir(), 'queue-test-' + Date.now());
-    queue = new FileQueue({ path: testDir });
+    queue = new FileQueue<TestJobs>({ path: testDir });
   });
 
   afterEach(async () => {
@@ -23,17 +27,15 @@ describe('FileQueue', () => {
   });
 
   describe('auto-initialization', () => {
-    it('should create queue directory on first push', async () => {
-      const job = new SimpleJob('test');
-      await queue.push(job);
+    it('should create queue directory on first job addition', async () => {
+      await queue.addJob('simple-job', { data: 'test' });
       
       const stats = await fs.stat(testDir);
       expect(stats.isDirectory()).toBe(true);
     });
 
-    it('should create index file on first push', async () => {
-      const job = new SimpleJob('test');
-      await queue.push(job);
+    it('should create index file on first job addition', async () => {
+      await queue.addJob('simple-job', { data: 'test' });
       
       const indexPath = path.join(testDir, 'index.json');
       const stats = await fs.stat(indexPath);
@@ -41,10 +43,9 @@ describe('FileQueue', () => {
     });
   });
 
-  describe('push', () => {
+  describe('addJob', () => {
     it('should add job to waiting queue', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
       
       expect(id).toBeTruthy();
       expect(typeof id).toBe('string');
@@ -54,16 +55,14 @@ describe('FileQueue', () => {
     });
 
     it('should add delayed job to delayed queue', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.delay(10).push(job);
+      const id = await queue.delay(10).addJob('delayed-job', { message: 'test payload' });
       
       const status = await queue.status(id);
       expect(status).toBe('waiting');
     });
 
     it('should create job file', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
       
       const jobPath = path.join(testDir, `job${id}.data`);
       const stats = await fs.stat(jobPath);
@@ -73,8 +72,7 @@ describe('FileQueue', () => {
 
   describe('reserve', () => {
     it('should reserve waiting job', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
 
       const reserved = await queue['reserve'](0);
       expect(reserved).not.toBeNull();
@@ -87,8 +85,7 @@ describe('FileQueue', () => {
     });
 
     it('should respect delay', async () => {
-      const job = new SimpleJob('test payload');
-      await queue.delay(2).push(job);
+      await queue.delay(2).addJob('delayed-job', { message: 'test payload' });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).toBeNull();
@@ -100,8 +97,7 @@ describe('FileQueue', () => {
     });
 
     it('should handle TTR timeout', async () => {
-      const job = new SimpleJob('test payload');
-      await queue.ttr(1).push(job);
+      await queue.ttr(1).addJob('simple-job', { data: 'test payload' });
 
       const reserved1 = await queue['reserve'](0);
       expect(reserved1).not.toBeNull();
@@ -122,8 +118,7 @@ describe('FileQueue', () => {
 
   describe('complete', () => {
     it('should remove completed job', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
 
       const reserved = await queue['reserve'](0);
       expect(reserved).not.toBeNull();
@@ -140,9 +135,9 @@ describe('FileQueue', () => {
 
   describe('clear', () => {
     it('should remove all jobs', async () => {
-      await queue.push(new SimpleJob('job1'));
-      await queue.push(new SimpleJob('job2'));
-      await queue.delay(10).push(new SimpleJob('job3'));
+      await queue.addJob('simple-job', { data: 'job1' });
+      await queue.addJob('simple-job', { data: 'job2' });
+      await queue.delay(10).addJob('delayed-job', { message: 'job3' });
 
       await queue.clear();
 
@@ -157,8 +152,7 @@ describe('FileQueue', () => {
 
   describe('remove', () => {
     it('should remove specific job from waiting', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
 
       const removed = await queue.remove(id);
       expect(removed).toBe(true);
@@ -168,8 +162,7 @@ describe('FileQueue', () => {
     });
 
     it('should remove specific job from delayed', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.delay(10).push(job);
+      const id = await queue.delay(10).addJob('delayed-job', { message: 'test payload' });
 
       const removed = await queue.remove(id);
       expect(removed).toBe(true);
@@ -179,8 +172,7 @@ describe('FileQueue', () => {
     });
 
     it('should remove specific job from reserved', async () => {
-      const job = new SimpleJob('test payload');
-      const id = await queue.push(job);
+      const id = await queue.addJob('simple-job', { data: 'test payload' });
       
       await queue['reserve'](0);
 
@@ -198,24 +190,24 @@ describe('FileQueue', () => {
   });
 
   describe('concurrent access', () => {
-    it('should handle concurrent pushes', async () => {
+    it('should handle concurrent job additions', async () => {
       const promises = Array.from({ length: 10 }, (_, i) => 
-        queue.push(new SimpleJob(`job${i}`))
+        queue.addJob('simple-job', { data: `job${i}` })
       );
 
       const ids = await Promise.all(promises);
       expect(new Set(ids).size).toBe(10); // All IDs should be unique
 
       for (const id of ids) {
-        const status = await queue.getJobStatus(id);
+        const status = await queue.status(id);
         expect(status).toBe('waiting');
       }
     });
 
     it('should handle concurrent reserves', async () => {
-      // Push 5 jobs
+      // Add 5 jobs
       for (let i = 0; i < 5; i++) {
-        await queue.push(new SimpleJob(`job${i}`));
+        await queue.addJob('simple-job', { data: `job${i}` });
       }
 
       // Reserve concurrently
@@ -228,6 +220,24 @@ describe('FileQueue', () => {
       // Check all IDs are unique
       const ids = reserved.map(r => r!.id);
       expect(new Set(ids).size).toBe(5);
+    });
+  });
+
+  describe('job processing', () => {
+    it('should process jobs with event handlers', async () => {
+      const processedJobs: string[] = [];
+      
+      queue.onJob('simple-job', async (payload) => {
+        processedJobs.push(payload.data);
+      });
+
+      await queue.addJob('simple-job', { data: 'test1' });
+      await queue.addJob('simple-job', { data: 'test2' });
+
+      // Process jobs once
+      await queue.run(false);
+
+      expect(processedJobs).toEqual(['test1', 'test2']);
     });
   });
 });

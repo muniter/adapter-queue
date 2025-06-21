@@ -3,7 +3,6 @@ import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.js';
 import type { QueueMessage, JobMeta, JobStatus } from '../interfaces/job.js';
-import type { Serializer } from '../core/serializer.js';
 
 interface IndexData {
   lastId: number;
@@ -22,17 +21,16 @@ interface FileQueueOptions {
   path: string;
   dirMode?: number;
   fileMode?: number;
-  serializer?: Serializer;
 }
 
-export class FileQueue extends Queue {
+export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
   private path: string;
   private dirMode: number;
   private fileMode?: number;
   private indexPath: string;
 
   constructor(options: FileQueueOptions) {
-    super({ serializer: options.serializer });
+    super();
     this.path = path.resolve(options.path);
     this.dirMode = options.dirMode ?? 0o755;
     this.fileMode = options.fileMode;

@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Queue } from '../../src/core/queue.ts';
-import { Job, JobMeta, QueueMessage } from '../../src/interfaces/job.ts';
+import { JobMeta, QueueMessage } from '../../src/interfaces/job.ts';
 
-class TestQueue extends Queue {
+interface TestJobs {
+  'test-job': { data: string };
+  'math-job': { a: number; b: number };
+}
+
+class TestQueue extends Queue<TestJobs> {
   public messages: Array<{ payload: Buffer; meta: JobMeta; id: string }> = [];
   private nextId = 1;
 
@@ -33,39 +38,16 @@ class TestQueue extends Queue {
   }
 }
 
-class TestJob implements Job<string> {
-  constructor(public data: string) {}
-
-  async execute(): Promise<string> {
-    return `Processed: ${this.data}`;
-  }
-
-  serialize() {
-    return {
-      constructor: 'TestJob',
-      data: this.data
-    };
-  }
-
-  static deserialize(data: any): TestJob {
-    return new TestJob(data.data);
-  }
-}
-
 describe('Queue', () => {
   let queue: TestQueue;
 
   beforeEach(() => {
     queue = new TestQueue();
-    
-    // Register job classes for serialization
-    queue['serializer'].registerJob('TestJob', TestJob);
   });
 
-  describe('push', () => {
-    it('should push a job with default settings', async () => {
-      const job = new TestJob('test data');
-      const id = await queue.push(job);
+  describe('addJob', () => {
+    it('should add a job with default settings', async () => {
+      const id = await queue.addJob('test-job', { data: 'test data' });
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
@@ -74,13 +56,26 @@ describe('Queue', () => {
       expect(queue.messages[0].meta.priority).toBe(0);
     });
 
-    it('should push a job with custom settings', async () => {
-      const job = new TestJob('test data');
+    it('should add a job with custom settings using fluent API', async () => {
       const id = await queue
         .ttr(600)
         .delay(30)
         .priority(5)
-        .push(job);
+        .addJob('test-job', { data: 'test data' });
+
+      expect(id).toBe('1');
+      expect(queue.messages).toHaveLength(1);
+      expect(queue.messages[0].meta.ttr).toBe(600);
+      expect(queue.messages[0].meta.delay).toBe(30);
+      expect(queue.messages[0].meta.priority).toBe(5);
+    });
+
+    it('should add a job with custom settings using options parameter', async () => {
+      const id = await queue.addJob('test-job', { data: 'test data' }, {
+        ttr: 600,
+        delay: 30,
+        priority: 5
+      });
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
@@ -96,36 +91,39 @@ describe('Queue', () => {
       queue.on('beforePush', beforePushSpy);
       queue.on('afterPush', afterPushSpy);
 
-      const job = new TestJob('test data');
-      await queue.push(job);
+      await queue.addJob('test-job', { data: 'test data' });
 
       expect(beforePushSpy).toHaveBeenCalledOnce();
       expect(afterPushSpy).toHaveBeenCalledOnce();
       expect(beforePushSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'beforePush',
-          job,
+          name: 'test-job',
+          payload: { data: 'test data' },
           meta: expect.any(Object)
         })
       );
     });
 
     it('should reset push options after each push', async () => {
-      const job1 = new TestJob('job1');
-      const job2 = new TestJob('job2');
-
-      await queue.ttr(600).push(job1);
-      await queue.push(job2);
+      await queue.ttr(600).addJob('test-job', { data: 'job1' });
+      await queue.addJob('test-job', { data: 'job2' });
 
       expect(queue.messages[0].meta.ttr).toBe(600);
       expect(queue.messages[1].meta.ttr).toBe(300); // back to default
     });
   });
 
-  describe('handleMessage', () => {
-    it('should execute job successfully', async () => {
-      const job = new TestJob('test data');
-      const payload = queue['serializer'].serialize(job);
+  describe('job processing', () => {
+    it('should execute job handler successfully', async () => {
+      const handlerSpy = vi.fn().mockResolvedValue(undefined);
+      queue.onJob('test-job', handlerSpy);
+
+      const payload = Buffer.from(JSON.stringify({
+        name: 'test-job',
+        payload: { data: 'test data' }
+      }));
+      
       const message: QueueMessage = {
         id: '1',
         payload,
@@ -133,18 +131,25 @@ describe('Queue', () => {
       };
 
       const result = await queue['handleMessage'](message);
+      
       expect(result).toBe(true);
+      expect(handlerSpy).toHaveBeenCalledWith({ data: 'test data' });
     });
 
     it('should emit beforeExec and afterExec events', async () => {
       const beforeExecSpy = vi.fn();
       const afterExecSpy = vi.fn();
+      const handlerSpy = vi.fn().mockResolvedValue('result');
 
       queue.on('beforeExec', beforeExecSpy);
       queue.on('afterExec', afterExecSpy);
+      queue.onJob('test-job', handlerSpy);
 
-      const job = new TestJob('test data');
-      const payload = queue['serializer'].serialize(job);
+      const payload = Buffer.from(JSON.stringify({
+        name: 'test-job',
+        payload: { data: 'test data' }
+      }));
+      
       const message: QueueMessage = {
         id: '1',
         payload,
@@ -155,6 +160,76 @@ describe('Queue', () => {
 
       expect(beforeExecSpy).toHaveBeenCalledOnce();
       expect(afterExecSpy).toHaveBeenCalledOnce();
+      expect(beforeExecSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'beforeExec',
+          id: '1',
+          name: 'test-job',
+          payload: { data: 'test data' },
+          meta: { ttr: 300 }
+        })
+      );
+    });
+
+    it('should handle job execution errors', async () => {
+      const error = new Error('Job failed');
+      const handlerSpy = vi.fn().mockRejectedValue(error);
+      const errorSpy = vi.fn();
+
+      queue.onJob('test-job', handlerSpy);
+      queue.on('afterError', errorSpy);
+
+      const payload = Buffer.from(JSON.stringify({
+        name: 'test-job',
+        payload: { data: 'test data' }
+      }));
+      
+      const message: QueueMessage = {
+        id: '1',
+        payload,
+        meta: { ttr: 300 }
+      };
+
+      const result = await queue['handleMessage'](message);
+      
+      expect(result).toBe(true); // Error is handled
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'afterError',
+          id: '1',
+          name: 'test-job',
+          payload: { data: 'test data' },
+          error
+        })
+      );
+    });
+
+    it('should error when no handler is registered', async () => {
+      const errorSpy = vi.fn();
+      queue.on('afterError', errorSpy);
+
+      const payload = Buffer.from(JSON.stringify({
+        name: 'unregistered-job',
+        payload: { data: 'test data' }
+      }));
+      
+      const message: QueueMessage = {
+        id: '1',
+        payload,
+        meta: { ttr: 300 }
+      };
+
+      const result = await queue['handleMessage'](message);
+      
+      expect(result).toBe(true); // Error is handled
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'afterError',
+          error: expect.objectContaining({
+            message: 'No handler registered for job type: unregistered-job'
+          })
+        })
+      );
     });
   });
 });

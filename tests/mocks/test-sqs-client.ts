@@ -15,6 +15,16 @@ export class TestSQSClient implements SQSClient {
   private messages: Map<string, StoredMessage> = new Map();
   private nextMessageId = 1;
   private nextReceiptHandle = 1;
+  
+  // Track sent and deleted messages for testing
+  public sentMessages: Array<{
+    QueueUrl: string;
+    MessageBody: string;
+    DelaySeconds?: number;
+    MessageAttributes?: Record<string, { StringValue: string; DataType: string }>;
+  }> = [];
+  
+  public deletedMessages: Array<{ MessageId: string; ReceiptHandle: string }> = [];
 
   async sendMessage(params: {
     QueueUrl: string;
@@ -44,6 +54,9 @@ export class TestSQSClient implements SQSClient {
 
     this.nextReceiptHandle++;
     this.messages.set(messageId, message);
+    
+    // Track sent message for testing
+    this.sentMessages.push(params);
 
     return { MessageId: messageId };
   }
@@ -90,6 +103,8 @@ export class TestSQSClient implements SQSClient {
   }): Promise<void> {
     for (const [id, message] of this.messages.entries()) {
       if (message.ReceiptHandle === params.ReceiptHandle) {
+        // Track deleted message for testing
+        this.deletedMessages.push({ MessageId: id, ReceiptHandle: params.ReceiptHandle });
         this.messages.delete(id);
         break;
       }
