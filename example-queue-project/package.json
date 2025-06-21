@@ -10,7 +10,8 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "add-job": "tsx src/add-job.ts",
-    "process-jobs": "tsx src/process-jobs.ts"
+    "process-jobs": "tsx src/process-jobs.ts",
+    "demo": "echo 'Run \"npm run process-jobs\" in one terminal, then \"npm run add-job\" in another!'"
   },
   "dependencies": {
     "@muniter/queue": "file:..",

@@ -4,3 +4,5 @@ node_modules/
 *.sqlite3
 dist/
 *.data
+queue.index.json
+queue.index.json*

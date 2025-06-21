@@ -34,7 +34,7 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
     this.path = path.resolve(options.path);
     this.dirMode = options.dirMode ?? 0o755;
     this.fileMode = options.fileMode;
-    this.indexPath = path.join(this.path, 'index.json');
+    this.indexPath = path.join(this.path, 'queue.index.json');
   }
 
   async init(): Promise<void> {

@@ -37,7 +37,7 @@ describe('FileQueue', () => {
     it('should create index file on first job addition', async () => {
       await queue.addJob('simple-job', { payload: { data: 'test' } });
       
-      const indexPath = path.join(testDir, 'index.json');
+      const indexPath = path.join(testDir, 'queue.index.json');
       const stats = await fs.stat(indexPath);
       expect(stats.isFile()).toBe(true);
     });
