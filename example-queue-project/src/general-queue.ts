@@ -1,5 +1,5 @@
 import { DbQueue } from "@muniter/queue";
-import { SQLiteDatabaseAdapter } from "./sqlite-adapter";
+import { SQLiteDatabaseAdapter } from "./sqlite-adapter.js";
 
 export interface GeneralJobs {
     'process-image': { url: string; width: number; height: number };

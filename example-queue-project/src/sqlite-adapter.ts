@@ -26,6 +26,18 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
   async reserveJob(timeout: number): Promise<QueueJobRecord | null> {
     const now = Date.now();
     
+    // First, recover any timed-out reserved jobs back to waiting
+    await run(
+      `UPDATE jobs SET 
+        status = 'waiting',
+        reserve_time = NULL,
+        expire_time = NULL,
+        attempt = attempt + 1
+       WHERE status = 'reserved' 
+       AND expire_time < ?`,
+      [now]
+    );
+    
     const job = await get(
       `SELECT * FROM jobs 
        WHERE status = 'waiting' 
@@ -37,13 +49,15 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
     if (!job) return null;
 
+    // Use the job's TTR value, not the polling timeout
+    const jobTtr = job.ttr || 300; // Default to 5 minutes if no TTR
     await run(
       `UPDATE jobs SET 
         status = 'reserved',
         reserve_time = ?,
         expire_time = ?
        WHERE id = ?`,
-      [now, now + timeout * 1000, job.id]
+      [now, now + jobTtr * 1000, job.id]
     );
 
     return {
