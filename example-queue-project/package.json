@@ -14,9 +14,10 @@
     "demo": "echo 'Run \"npm run run\" in one terminal, then \"npm run push\" in another!'"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.831.0",
     "@muniter/queue": "file:..",
-    "sqlite3": "^5.1.6",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

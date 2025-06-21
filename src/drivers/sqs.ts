@@ -7,7 +7,7 @@ export interface SQSClient {
     MessageBody: string;
     DelaySeconds?: number;
     MessageAttributes?: Record<string, { StringValue: string; DataType: string }>;
-  }): Promise<{ MessageId: string }>;
+  }): Promise<{ MessageId?: string; $metadata?: any }>;
   
   receiveMessage(params: {
     QueueUrl: string;
@@ -15,22 +15,22 @@ export interface SQSClient {
     WaitTimeSeconds?: number;
     MessageAttributeNames?: string[];
   }): Promise<{ Messages?: Array<{
-    MessageId: string;
-    Body: string;
-    ReceiptHandle: string;
-    MessageAttributes?: Record<string, { StringValue: string }>;
-  }> }>;
+    MessageId?: string;
+    Body?: string;
+    ReceiptHandle?: string;
+    MessageAttributes?: Record<string, { StringValue?: string }>;
+  }>; $metadata?: any }>;
   
   deleteMessage(params: {
     QueueUrl: string;
     ReceiptHandle: string;
-  }): Promise<void>;
+  }): Promise<{ $metadata?: any }>;
   
   changeMessageVisibility(params: {
     QueueUrl: string;
     ReceiptHandle: string;
     VisibilityTimeout: number;
-  }): Promise<void>;
+  }): Promise<{ $metadata?: any }>;
 }
 
 export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJobRequest<any>> {
@@ -54,12 +54,15 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
 
     const result = await this.client.sendMessage({
       QueueUrl: this.queueUrl,
-      MessageBody: payload.toString('base64'),
+      MessageBody: payload.toString('utf8'),
       DelaySeconds: meta.delay || 0,
       MessageAttributes: messageAttributes
     });
 
-    return result.MessageId!;
+    if (!result.MessageId) {
+      throw new Error('Failed to send message - no MessageId returned');
+    }
+    return result.MessageId;
   }
 
   protected async reserve(timeout: number): Promise<QueueMessage | null> {
@@ -74,14 +77,17 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
       return null;
     }
 
-    const message = result.Messages[0]!;
-    const payload = Buffer.from(message.Body, 'base64');
+    const message = result.Messages[0];
+    if (!message || !message.Body || !message.MessageId || !message.ReceiptHandle) {
+      return null;
+    }
+    const payload = Buffer.from(message.Body, 'utf8');
     
     const meta: JobMeta = {};
-    if (message.MessageAttributes?.ttr) {
+    if (message.MessageAttributes?.ttr?.StringValue) {
       meta.ttr = parseInt(message.MessageAttributes.ttr.StringValue);
     }
-    if (message.MessageAttributes?.priority) {
+    if (message.MessageAttributes?.priority?.StringValue) {
       meta.priority = parseInt(message.MessageAttributes.priority.StringValue);
     }
 
