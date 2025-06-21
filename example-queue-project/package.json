@@ -9,9 +9,9 @@
     "lint": "tsc --noEmit",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "add-job": "tsx src/add-job.ts",
-    "process-jobs": "tsx src/process-jobs.ts",
-    "demo": "echo 'Run \"npm run process-jobs\" in one terminal, then \"npm run add-job\" in another!'"
+    "push": "tsx src/index.ts --push",
+    "run": "tsx src/index.ts --run",
+    "demo": "echo 'Run \"npm run run\" in one terminal, then \"npm run push\" in another!'"
   },
   "dependencies": {
     "@muniter/queue": "file:..",

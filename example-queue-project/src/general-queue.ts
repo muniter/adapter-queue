@@ -35,3 +35,16 @@ generalQueue.onJob('generate-report', async (payload) => {
 
     console.log(`Report generated: ${type} for ${period}`);
 });
+
+// Add event listeners for both queues
+generalQueue.on('beforeExec', (event) => {
+    console.log(`\n[generalQueue][${new Date().toISOString()}] Starting ${event.name} job ${event.id}...`);
+});
+
+generalQueue.on('afterExec', (event) => {
+    console.log(`[generalQueue][${new Date().toISOString()}] Job ${event.id} (${event.name}) completed successfully`);
+});
+
+generalQueue.on('afterError', (event) => {
+    console.error(`[generalQueue][${new Date().toISOString()}] Job ${event.id} (${event.name}) failed:`, event.error);
+});

@@ -1,4 +1,4 @@
-import { initializeDatabase, run } from './database.js';
+import { initializeDatabase } from './database.js';
 import { emailQueue } from './email-queue.js';
 import { generalQueue } from './general-queue.js';
 import { parseArgs } from 'util';
@@ -37,53 +37,20 @@ async function push() {
   });
   console.log(`Image job added with ID: ${imageJobId}`);
 
-  const reportJobId = await generalQueue.addJob('generate-report', {
+  await generalQueue.addJob('generate-report', {
     payload: {
       type: 'sales',
       period: 'Q4-2023'
     },
     delay: 2
   });
-  console.log(`Delayed report job added with ID: ${reportJobId}`);
-
-  // Add event listeners for both queues
-  generalQueue.on('beforeExec', (event) => {
-    console.log(`\n[generalQueue][${new Date().toISOString()}] Starting ${event.name} job ${event.id}...`);
-  });
-
-  generalQueue.on('afterExec', (event) => {
-    console.log(`[generalQueue][${new Date().toISOString()}] Job ${event.id} (${event.name}) completed successfully`);
-  });
-
-  generalQueue.on('afterError', (event) => {
-    console.error(`[generalQueue][${new Date().toISOString()}] Job ${event.id} (${event.name}) failed:`, event.error);
-  });
-
-  emailQueue.on('beforeExec', (event) => {
-    console.log(`\n[emailQueue][${new Date().toISOString()}] Starting ${event.name} job ${event.id}...`);
-  });
-
-  emailQueue.on('afterExec', (event) => {
-    console.log(`[emailQueue][${new Date().toISOString()}] Email job ${event.id} (${event.name}) completed successfully`);
-  });
-
-  emailQueue.on('afterError', (event) => {
-    console.error(`[emailQueue][${new Date().toISOString()}] Email job ${event.id} (${event.name}) failed:`, event.error);
-  });
-
-  console.log('\nStarting workers...');
-
-  process.on('SIGINT', () => {
-    console.log('\nShutting down gracefully...');
-    process.exit(0);
-  });
 }
 
 async function run() {
   console.log('Starting queue workers...');
   await Promise.allSettled([
-    emailQueue.run(true),
-    generalQueue.run(true)
+    emailQueue.run(true, 1),
+    generalQueue.run(true, 1),
   ])
   console.log('Queue workers are running. Press Ctrl+C to exit.');
 }
@@ -105,7 +72,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('  --run          Run the queue workers (default: false)');
     process.exit(0);
   }
-  
+
   if (args.values.push) {
     await push();
   } else if (args.values.run) {
