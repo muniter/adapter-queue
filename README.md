@@ -1,15 +1,15 @@
 # @muniter/queue
 
-A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean abstraction for job processing with multiple storage backends.
+A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean abstraction for job processing with multiple storage backends and event-based job handling.
 
 ## Features
 
 - **Driver-based architecture**: Swap between DB, SQS, and File drivers seamlessly
-- **Type-safe jobs**: Full TypeScript support with proper serialization
-- **Retry logic**: Built-in retry mechanisms with customizable strategies  
-- **Event system**: Hook into queue lifecycle events
+- **Event-based jobs**: Register handlers for job types without complex classes
+- **Type-safe API**: Full TypeScript support with driver-specific option validation
 - **Worker isolation**: Run jobs in separate processes for better stability
-- **Fluent API**: Chain configuration methods for clean code
+- **Multiple backends**: Database, Amazon SQS, and File storage drivers
+- **Event system**: Hook into queue lifecycle events
 
 ## Installation
 
@@ -24,130 +24,189 @@ npm install @muniter/queue @aws-sdk/client-sqs
 
 ## Quick Start
 
-### 1. Define a Job
+### 1. Define Job Types and Handlers
 
 ```typescript
-import { Job, Queue } from '@muniter/queue';
+import { FileQueue } from '@muniter/queue';
 
-export class EmailJob implements Job<void> {
-  constructor(
-    public to: string,
-    public subject: string,
-    public body: string
-  ) {}
-
-  async execute(queue: Queue): Promise<void> {
-    // Send email logic here
-    console.log(`Sending email to ${this.to}: ${this.subject}`);
-  }
-
-  // Optional: Make job serializable
-  serialize() {
-    return {
-      constructor: 'EmailJob',
-      to: this.to,
-      subject: this.subject,
-      body: this.body
-    };
-  }
-
-  static deserialize(data: any): EmailJob {
-    return new EmailJob(data.to, data.subject, data.body);
-  }
+// Define your job types with TypeScript
+interface MyJobs {
+  'send-email': { to: string; subject: string; body: string };
+  'resize-image': { url: string; width: number; height: number };
+  'generate-report': { type: string; period: string };
 }
+
+const queue = new FileQueue<MyJobs>({ path: './queue-data' });
+
+// Register event-based handlers
+queue.onJob('send-email', async (payload) => {
+  // payload is automatically typed as { to: string; subject: string; body: string }
+  console.log(`Sending email to ${payload.to}: ${payload.subject}`);
+  await sendEmail(payload.to, payload.subject, payload.body);
+});
+
+queue.onJob('resize-image', async (payload) => {
+  // payload is automatically typed as { url: string; width: number; height: number }
+  console.log(`Resizing image ${payload.url} to ${payload.width}x${payload.height}`);
+  await resizeImage(payload.url, payload.width, payload.height);
+});
 ```
 
-### 2. Database Driver Setup
-
-Create a database adapter that implements the `DatabaseAdapter` interface:
+### 2. Add Jobs to Queue
 
 ```typescript
-import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '@muniter/queue';
-
-export class MongoDatabaseAdapter implements DatabaseAdapter {
-  constructor(private db: MongoDatabase) {}
-
-  async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
-    const result = await this.db.collection('queue_jobs').insertOne({
-      payload,
-      meta,
-      pushedAt: new Date(),
-      attempt: meta.attempt || 0
-    });
-    return result.insertedId.toString();
+// Simple job addition
+await queue.addJob('send-email', {
+  payload: {
+    to: 'user@example.com',
+    subject: 'Welcome!',
+    body: 'Thanks for signing up!'
   }
+});
 
-  async reserveJob(timeout: number): Promise<QueueJobRecord | null> {
-    const now = new Date();
-    
-    const job = await this.db.collection('queue_jobs').findOneAndUpdate(
-      { 
-        doneAt: { $exists: false },
-        reservedAt: { $exists: false },
-        $or: [
-          { 'meta.delay': { $exists: false } },
-          { pushedAt: { $lte: new Date(now.getTime() - (meta.delay || 0) * 1000) } }
-        ]
-      },
-      { $set: { reservedAt: now } },
-      { sort: { 'meta.priority': -1, pushedAt: 1 } }
-    );
+// Job with options (TTR supported by all drivers)
+await queue.addJob('resize-image', {
+  payload: {
+    url: 'https://example.com/image.jpg',
+    width: 800,
+    height: 600
+  },
+  ttr: 300  // 5 minute timeout
+});
 
-    return job?.value ? {
-      id: job.value._id.toString(),
-      payload: job.value.payload,
-      meta: job.value.meta,
-      pushedAt: job.value.pushedAt,
-      reservedAt: job.value.reservedAt,
-      attempt: job.value.attempt
-    } : null;
-  }
-
-  async releaseJob(id: string): Promise<void> {
-    await this.db.collection('queue_jobs').updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { doneAt: new Date() } }
-    );
-  }
-
-  async getJobStatus(id: string): Promise<JobStatus | null> {
-    const job = await this.db.collection('queue_jobs').findOne({ _id: new ObjectId(id) });
-    if (!job) return null;
-    
-    if (job.doneAt) return 'done';
-    if (job.reservedAt) return 'reserved';
-    return 'waiting';
-  }
-
-  async updateJobAttempt(id: string, attempt: number): Promise<void> {
-    await this.db.collection('queue_jobs').updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { attempt, 'meta.attempt': attempt } }
-    );
-  }
-}
+// Job with delay (supported by File and SQS drivers)
+await queue.addJob('generate-report', {
+  payload: {
+    type: 'monthly',
+    period: 'December 2024'
+  },
+  delay: 60,  // 1 minute delay
+  ttr: 600    // 10 minute timeout
+});
 ```
 
-### 3. Push Jobs
+### 3. Process Jobs
+
+```typescript
+// Start processing jobs
+await queue.run(true, 3); // Run continuously, poll every 3 seconds
+
+// Or process jobs once and exit
+await queue.run(false);
+```
+
+## Queue Drivers
+
+### File Driver
+
+A file-based queue that stores jobs as individual files with JSON index tracking. Perfect for development and single-server applications.
+
+```typescript
+import { FileQueue } from '@muniter/queue';
+
+const queue = new FileQueue<MyJobs>({
+  path: './queue-data',    // Directory to store queue files
+  dirMode: 0o755,         // Directory permissions (optional)
+  fileMode: 0o644         // File permissions (optional)
+});
+
+// Supports: TTR, Delay
+// Does not support: Priority
+await queue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'File queue test' },
+  ttr: 300,
+  delay: 60
+});
+```
+
+### Database Driver
+
+Use any database that implements the `DatabaseAdapter` interface:
 
 ```typescript
 import { DbQueue } from '@muniter/queue';
 
-const dbAdapter = new MongoDatabaseAdapter(db);
-const queue = new DbQueue(dbAdapter);
+// You provide the database adapter implementation
+const dbAdapter = new YourDatabaseAdapter(); // implements DatabaseAdapter
+const queue = new DbQueue<MyJobs>(dbAdapter);
 
-// Simple job
-await queue.push(new EmailJob('user@example.com', 'Welcome!', 'Hello world'));
-
-// Job with custom settings
-await queue
-  .ttr(600)        // 10 minute timeout
-  .delay(30)       // 30 second delay  
-  .priority(5)     // Higher priority
-  .push(new EmailJob('urgent@example.com', 'Urgent!', 'Important message'));
+// Supports: TTR, Delay, Priority (depends on adapter implementation)
+await queue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'DB queue test' },
+  ttr: 300,
+  delay: 60,
+  priority: 5
+});
 ```
 
-### 4. Process Jobs (Worker)
+### SQS Driver
+
+Amazon SQS integration with native delay support:
+
+```typescript
+import { SQSClient } from '@aws-sdk/client-sqs';
+import { SqsQueue } from '@muniter/queue';
+
+const sqsClient = new SQSClient({ region: 'us-east-1' });
+const queue = new SqsQueue<MyJobs>(
+  sqsClient,
+  'https://sqs.us-east-1.amazonaws.com/123456789/my-queue'
+);
+
+// Supports: TTR, Delay  
+// Does not support: Priority (SQS FIFO queues would be needed)
+await queue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'SQS test' },
+  ttr: 300,
+  delay: 60
+  // priority: 5  // ❌ TypeScript error - not supported by SQS driver
+});
+```
+
+## Type Safety
+
+The library provides compile-time type safety for both payloads and driver-specific options:
+
+```typescript
+interface MyJobs {
+  'send-email': { to: string; subject: string; body: string };
+}
+
+const fileQueue = new FileQueue<MyJobs>({ path: './data' });
+const sqsQueue = new SqsQueue<MyJobs>(client, url);
+
+// ✅ Payload is type-checked
+await fileQueue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'Hello' }
+});
+
+// ✅ TTR and delay work with FileQueue
+await fileQueue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'Hello' },
+  ttr: 300,
+  delay: 60
+});
+
+// ❌ TypeScript error - FileQueue doesn't support priority
+await fileQueue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'Hello' },
+  priority: 5  // Error!
+});
+
+// ✅ SqsQueue supports delay but not priority  
+await sqsQueue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'Hello' },
+  delay: 30  // Works
+});
+
+// ❌ TypeScript error - SqsQueue doesn't support priority
+await sqsQueue.addJob('send-email', {
+  payload: { to: 'user@example.com', subject: 'Test', body: 'Hello' },
+  priority: 5  // Error!
+});
+```
+
+## Worker Usage
 
 ```typescript
 import { Worker } from '@muniter/queue';
@@ -155,7 +214,7 @@ import { Worker } from '@muniter/queue';
 const worker = new Worker(queue);
 
 // Process jobs continuously
-await worker.start();
+await worker.start(true, 3); // repeat=true, timeout=3 seconds
 
 // Process once then exit
 await worker.start(false);
@@ -165,71 +224,20 @@ const isolatedWorker = new Worker(queue, { isolate: true });
 await isolatedWorker.start();
 ```
 
-## Queue Drivers
-
-### File Driver
-
-A simple file-based queue that stores jobs as files on disk. Perfect for development and small applications.
-
-```typescript
-import { FileQueue } from '@muniter/queue';
-
-const queue = new FileQueue({
-  path: './queue-data',    // Directory to store queue files
-  dirMode: 0o755,         // Directory permissions (optional)
-  fileMode: 0o644         // File permissions (optional)
-});
-
-// Queue auto-initializes on first use
-await queue.push(new EmailJob('user@example.com', 'Test', 'Via File Queue'));
-```
-
-### SQS Driver
-
-```typescript
-import { SQSClient } from '@aws-sdk/client-sqs';
-import { SqsQueue } from '@muniter/queue';
-
-const sqsClient = new SQSClient({ region: 'us-east-1' });
-const queue = new SqsQueue(
-  sqsClient,
-  'https://sqs.us-east-1.amazonaws.com/123456789/my-queue'
-);
-
-await queue.push(new EmailJob('user@example.com', 'SQS Test', 'Via SQS'));
-```
-
-## Retryable Jobs
-
-```typescript
-import { RetryableJob, Queue } from '@muniter/queue';
-
-export class RetryableEmailJob implements RetryableJob<void> {
-  constructor(public to: string, public subject: string) {}
-
-  getTtr(): number {
-    return 300; // 5 minute timeout
-  }
-
-  canRetry(attempt: number, error: unknown): boolean {
-    return attempt < 3; // Max 3 attempts
-  }
-
-  async execute(queue: Queue): Promise<void> {
-    // Might fail and retry
-    if (Math.random() < 0.5) {
-      throw new Error('Simulated failure');
-    }
-    console.log(`Email sent to ${this.to}`);
-  }
-}
-```
-
 ## Event Handling
 
 ```typescript
+// Job lifecycle events
 queue.on('beforePush', (event) => {
-  console.log('About to push job:', event.job);
+  console.log('About to add job:', event.name, event.payload);
+});
+
+queue.on('afterPush', (event) => {
+  console.log('Job added with ID:', event.id);
+});
+
+queue.on('beforeExec', (event) => {
+  console.log('Starting job:', event.id, event.name);
 });
 
 queue.on('afterExec', (event) => {
@@ -241,58 +249,91 @@ queue.on('afterError', (event) => {
 });
 ```
 
+## Database Adapter Interface
+
+To create your own database driver, implement the `DatabaseAdapter` interface:
+
+```typescript
+import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '@muniter/queue';
+
+export class YourDatabaseAdapter implements DatabaseAdapter {
+  async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
+    // Insert job into your database
+    // Return unique job ID
+  }
+
+  async reserveJob(timeout: number): Promise<QueueJobRecord | null> {
+    // Find and reserve next available job
+    // Handle delay, priority, TTR logic
+    // Return job record or null
+  }
+
+  async completeJob(id: string): Promise<void> {
+    // Mark job as completed
+  }
+
+  async releaseJob(id: string): Promise<void> {
+    // Release job back to queue (for retry)
+  }
+
+  async failJob(id: string, error: string): Promise<void> {
+    // Mark job as failed
+  }
+
+  async getJobStatus(id: string): Promise<JobStatus | null> {
+    // Return 'waiting' | 'reserved' | 'done' | 'failed'
+  }
+}
+```
+
 ## CLI Usage
 
 ```bash
-# Database driver
-node dist/cli/worker.js --driver db
+# Database driver (requires your adapter)
+npm run queue:worker -- --driver db
 
 # SQS driver  
-node dist/cli/worker.js --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
+npm run queue:worker -- --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
+
+# File driver
+npm run queue:worker -- --driver file --path ./queue-data
 
 # Isolated mode
-node dist/cli/worker.js --isolate
+npm run queue:worker -- --isolate
 
 # Run once and exit
-node dist/cli/worker.js --no-repeat
+npm run queue:worker -- --no-repeat
 
-# Custom timeout
-node dist/cli/worker.js --timeout 10
+# Custom polling timeout
+npm run queue:worker -- --timeout 10
 ```
 
 ## API Reference
 
 ### Queue Methods
 
-- `push(job: Job): Promise<string>` - Add job to queue
-- `ttr(seconds: number): this` - Set job timeout  
-- `delay(seconds: number): this` - Delay job execution
-- `priority(level: number): this` - Set job priority
+- `addJob<K>(name: K, request: { payload: JobMap[K], ...options }): Promise<string>` - Add job to queue
+- `onJob<K>(name: K, handler: (payload: JobMap[K]) => Promise<void>): this` - Register job handler
+- `run(repeat?: boolean, timeout?: number): Promise<void>` - Start processing jobs
 - `status(id: string): Promise<JobStatus>` - Get job status
 
-### Job Interface
+### Driver-Specific Options
+
+- **All drivers**: `{ ttr?: number }` (time-to-run in seconds)
+- **DbQueue**: `{ ttr?, delay?, priority? }` (depends on adapter implementation)
+- **SqsQueue**: `{ ttr?, delay? }` (uses SQS DelaySeconds)
+- **FileQueue**: `{ ttr?, delay? }` (implements delay functionality)
+
+### Job Definition
 
 ```typescript
-interface Job<T = any> {
-  execute(queue: Queue): Promise<T> | T;
+interface JobMap {
+  'job-name': { /* payload type */ };
+  'another-job': { /* payload type */ };
 }
 
-interface RetryableJob<T = any> extends Job<T> {
-  getTtr(): number;
-  canRetry(attempt: number, error: unknown): boolean;
-}
-```
-
-### Database Adapter Interface
-
-```typescript
-interface DatabaseAdapter {
-  insertJob(payload: Buffer, meta: JobMeta): Promise<string>;
-  reserveJob(timeout: number): Promise<QueueJobRecord | null>;
-  releaseJob(id: string): Promise<void>;
-  getJobStatus(id: string): Promise<JobStatus | null>;
-  updateJobAttempt(id: string, attempt: number): Promise<void>;
-}
+// Jobs are defined as TypeScript interfaces, not classes
+// Handlers are registered with queue.onJob()
 ```
 
 ## Testing
@@ -303,25 +344,31 @@ Run the test suite:
 npm test
 ```
 
-Watch mode:
+Build the project:
 ```bash
-npm run test:watch
+npm run build
+```
+
+Type checking:
+```bash
+npm run lint
 ```
 
 ## Architecture
 
-This library follows the Yii2-Queue architecture:
+The library uses an event-based architecture:
 
-1. **Abstract Queue** - Common interface and logic
-2. **Drivers** - Storage-specific implementations (DB, SQS)  
-3. **Jobs** - Units of work with execute() method
-4. **Workers** - Long-running processes that consume jobs
-5. **Events** - Lifecycle hooks for cross-cutting concerns
+1. **Abstract Queue** - Common interface and job processing logic
+2. **Drivers** - Storage-specific implementations (DB, SQS, File)  
+3. **Event Handlers** - Functions that process specific job types
+4. **Type Safety** - Compile-time validation of payloads and options
+5. **Events** - Lifecycle hooks for monitoring and cross-cutting concerns
 
-The design allows you to:
+Benefits:
 - Swap drivers without changing job code
 - Add new storage backends easily
-- Test with in-memory implementations  
+- Type-safe job payloads and options
+- Test with mock implementations  
 - Scale workers independently
 - Monitor via events
 
