@@ -65,13 +65,13 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
   }
 
   async releaseJob(id: string): Promise<void> {
+    // Mark job as done instead of releasing it back to waiting
     await run(
       `UPDATE jobs SET 
-        status = 'waiting',
-        reserve_time = NULL,
-        expire_time = NULL
+        status = 'done',
+        done_time = ?
        WHERE id = ?`,
-      [parseInt(id)]
+      [Date.now(), parseInt(id)]
     );
   }
 

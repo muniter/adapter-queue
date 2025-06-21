@@ -2,13 +2,15 @@ import { DbQueue } from '@muniter/queue';
 import { SQLiteDatabaseAdapter } from './sqlite-adapter.js';
 import { initializeDatabase } from './database.js';
 import { EmailJob, ImageProcessingJob, ReportGeneratorJob } from './job-processors.js';
+import { JobSerializer } from './job-serializer.js';
 
 async function main() {
   console.log('Initializing database...');
   await initializeDatabase();
 
   const adapter = new SQLiteDatabaseAdapter();
-  const queue = new DbQueue(adapter);
+  const serializer = new JobSerializer();
+  const queue = new DbQueue(adapter, { serializer });
 
   console.log('Adding some test jobs...');
 
@@ -27,6 +29,19 @@ async function main() {
   const reportJob = new ReportGeneratorJob('sales', 'Q4-2023');
   const jobId4 = await queue.push(reportJob);
   console.log(`Report job added with ID: ${jobId4}`);
+
+  // Add event listeners
+  queue.on('beforeExec', (event) => {
+    console.log(`\n[${new Date().toISOString()}] Starting job ${event.id}...`);
+  });
+
+  queue.on('afterExec', (event) => {
+    console.log(`[${new Date().toISOString()}] Job ${event.id} completed successfully`);
+  });
+
+  queue.on('afterError', (event) => {
+    console.error(`[${new Date().toISOString()}] Job ${event.id} failed:`, event.error);
+  });
 
   console.log('\nStarting worker...');
   console.log('Queue worker is running. Press Ctrl+C to exit.');
