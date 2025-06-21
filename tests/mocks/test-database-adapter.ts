@@ -39,10 +39,28 @@ export class TestDatabaseAdapter implements DatabaseAdapter {
     return null;
   }
 
-  async releaseJob(id: string): Promise<void> {
+  async completeJob(id: string): Promise<void> {
     const job = this.jobs.get(id);
     if (job) {
       job.doneAt = new Date();
+      this.jobs.set(id, job);
+    }
+  }
+
+  async releaseJob(id: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (job) {
+      job.reservedAt = undefined;
+      this.jobs.set(id, job);
+    }
+  }
+
+  async failJob(id: string, error: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (job) {
+      job.doneAt = new Date();
+      (job as any).error = error;
+      (job as any).failed = true;
       this.jobs.set(id, job);
     }
   }
@@ -51,6 +69,7 @@ export class TestDatabaseAdapter implements DatabaseAdapter {
     const job = this.jobs.get(id);
     if (!job) return null;
     
+    if ((job as any).failed) return 'failed';
     if (job.doneAt) return 'done';
     if (job.reservedAt) return 'reserved';
     return 'waiting';

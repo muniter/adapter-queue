@@ -29,7 +29,7 @@ export class DbQueue extends Queue {
   }
 
   protected async release(message: QueueMessage): Promise<void> {
-    await this.db.releaseJob(message.id);
+    await this.db.completeJob(message.id);
   }
 
   async status(id: string): Promise<JobStatus> {

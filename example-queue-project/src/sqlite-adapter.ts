@@ -64,14 +64,35 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     };
   }
 
-  async releaseJob(id: string): Promise<void> {
-    // Mark job as done instead of releasing it back to waiting
+  async completeJob(id: string): Promise<void> {
     await run(
       `UPDATE jobs SET 
         status = 'done',
         done_time = ?
        WHERE id = ?`,
       [Date.now(), parseInt(id)]
+    );
+  }
+
+  async releaseJob(id: string): Promise<void> {
+    await run(
+      `UPDATE jobs SET 
+        status = 'waiting',
+        reserve_time = NULL,
+        expire_time = NULL
+       WHERE id = ?`,
+      [parseInt(id)]
+    );
+  }
+
+  async failJob(id: string, error: string): Promise<void> {
+    await run(
+      `UPDATE jobs SET 
+        status = 'failed',
+        error_message = ?,
+        done_time = ?
+       WHERE id = ?`,
+      [error, Date.now(), parseInt(id)]
     );
   }
 
@@ -90,6 +111,8 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
         return 'reserved';
       case 'done':
         return 'done';
+      case 'failed':
+        return 'failed';
       default:
         return null;
     }
