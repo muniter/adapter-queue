@@ -7,7 +7,6 @@ A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean
 - **Driver-based architecture**: Swap between DB, SQS, and File drivers seamlessly
 - **Event-based jobs**: Register handlers for job types without complex classes
 - **Type-safe API**: Full TypeScript support with driver-specific option validation
-- **Worker isolation**: Run jobs in separate processes for better stability
 - **Multiple backends**: Database, Amazon SQS, and File storage drivers
 - **Event system**: Hook into queue lifecycle events
 
@@ -219,9 +218,9 @@ await worker.start(true, 3); // repeat=true, timeout=3 seconds
 // Process once then exit
 await worker.start(false);
 
-// With isolation (jobs run in child processes)
-const isolatedWorker = new Worker(queue, { isolate: true });
-await isolatedWorker.start();
+// With custom timeout
+const worker = new Worker(queue, { timeout: 5 });
+await worker.start();
 ```
 
 ## Event Handling
@@ -297,9 +296,6 @@ npm run queue:worker -- --driver sqs --queue-url https://sqs.us-east-1.amazonaws
 
 # File driver
 npm run queue:worker -- --driver file --path ./queue-data
-
-# Isolated mode
-npm run queue:worker -- --isolate
 
 # Run once and exit
 npm run queue:worker -- --no-repeat

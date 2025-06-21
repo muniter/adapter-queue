@@ -63,22 +63,6 @@ describe('Worker', () => {
       expect(processedJobs.sort()).toEqual(['job0', 'job1', 'job2', 'job3', 'job4']);
     });
 
-    it('should handle worker with isolation', async () => {
-      const processedJobs: string[] = [];
-      
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
-      });
-
-      await queue.addJob('simple-job', { payload: { data: 'isolated test' } });
-
-      const worker = new Worker(queue, { isolate: true });
-      await worker.start(false, 1);
-
-      // Note: In isolation mode, the job may not execute the registered handler
-      // This test mainly verifies that the worker doesn't crash
-      expect(true).toBe(true); // Worker didn't crash
-    });
 
     it('should handle worker start and stop', async () => {
       const worker = new Worker(queue);
@@ -88,8 +72,8 @@ describe('Worker', () => {
     });
 
     it('should support different worker options', async () => {
-      const worker1 = new Worker(queue, { isolate: false });
-      const worker2 = new Worker(queue, { isolate: true, timeout: 5 });
+      const worker1 = new Worker(queue);
+      const worker2 = new Worker(queue, { timeout: 5 });
       
       expect(worker1).toBeInstanceOf(Worker);
       expect(worker2).toBeInstanceOf(Worker);

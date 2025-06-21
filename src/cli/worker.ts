@@ -6,7 +6,6 @@ import { SqsQueue } from '../drivers/sqs.ts';
 
 interface WorkerConfig {
   driver: 'db' | 'sqs';
-  isolate?: boolean;
   repeat?: boolean;
   timeout?: number;
   dbAdapter?: any;
@@ -18,7 +17,6 @@ function parseArgs(): WorkerConfig {
   const args = process.argv.slice(2);
   const config: WorkerConfig = {
     driver: 'db',
-    isolate: false,
     repeat: true,
     timeout: 3
   };
@@ -29,9 +27,6 @@ function parseArgs(): WorkerConfig {
     switch (arg) {
       case '--driver':
         config.driver = args[++i] as 'db' | 'sqs';
-        break;
-      case '--isolate':
-        config.isolate = true;
         break;
       case '--no-repeat':
         config.repeat = false;
@@ -60,14 +55,13 @@ Usage: node worker.js [options]
 
 Options:
   --driver <type>     Queue driver: 'db' or 'sqs' (default: db)
-  --isolate          Run jobs in isolated child processes
   --no-repeat        Run once and exit (default: run continuously)
   --timeout <sec>    Polling timeout in seconds (default: 3)
   --queue-url <url>  SQS queue URL (required for SQS driver)
   --help             Show this help message
 
 Examples:
-  node worker.js --driver db --isolate
+  node worker.js --driver db
   node worker.js --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
   node worker.js --no-repeat --timeout 10
   `);
@@ -102,12 +96,10 @@ async function main(): Promise<void> {
   }
 
   const worker = new Worker(queue, {
-    isolate: config.isolate,
     timeout: config.timeout
   });
 
   console.log(`Starting worker with ${config.driver} driver...`);
-  console.log(`Isolate: ${config.isolate}`);
   console.log(`Repeat: ${config.repeat}`);
   console.log(`Timeout: ${config.timeout}s`);
 
