@@ -115,20 +115,6 @@ describe('SqsQueue', () => {
       expect(afterErrorSpy).toHaveBeenCalledOnce();
     });
 
-    it('should delete message on max retries exceeded', async () => {
-      const job = new FailingJob(true);
-      await queue.push(job);
-
-      const deleteMessageSpy = vi.spyOn(sqsClient, 'deleteMessage');
-      
-      const message = await queue['reserve'](0);
-      await queue['handleError'](message!, new Error('Test error'));
-
-      expect(deleteMessageSpy).toHaveBeenCalledWith({
-        QueueUrl: queueUrl,
-        ReceiptHandle: '1'
-      });
-    });
   });
 
   describe('serialization', () => {

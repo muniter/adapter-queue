@@ -2,11 +2,6 @@ export interface Job<T = any> {
   execute(queue: Queue): Promise<T> | T;
 }
 
-export interface RetryableJob<T = any> extends Job<T> {
-  getTtr(): number;
-  canRetry(attempt: number, error: unknown): boolean;
-}
-
 export interface Queue {
   push(job: Job): Promise<string>;
   status(id: string): Promise<JobStatus>;
@@ -19,7 +14,6 @@ export interface JobMeta {
   ttr?: number;
   delay?: number;
   priority?: number;
-  attempt?: number;
   pushedAt?: Date;
   reservedAt?: Date;
   doneAt?: Date;

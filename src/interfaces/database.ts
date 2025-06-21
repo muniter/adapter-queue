@@ -1,3 +1,5 @@
+import type { JobStatus, JobMeta } from './job.ts';
+
 export interface DatabaseAdapter {
   insertJob(payload: Buffer, meta: JobMeta): Promise<string>;
   reserveJob(timeout: number): Promise<QueueJobRecord | null>;
@@ -5,7 +7,6 @@ export interface DatabaseAdapter {
   releaseJob(id: string): Promise<void>;
   failJob(id: string, error: string): Promise<void>;
   getJobStatus(id: string): Promise<JobStatus | null>;
-  updateJobAttempt(id: string, attempt: number): Promise<void>;
 }
 
 export interface QueueJobRecord {
@@ -15,17 +16,4 @@ export interface QueueJobRecord {
   pushedAt: Date;
   reservedAt?: Date;
   doneAt?: Date;
-  attempt: number;
 }
-
-export interface JobMeta {
-  ttr?: number;
-  delay?: number;
-  priority?: number;
-  attempt?: number;
-  pushedAt?: Date;
-  reservedAt?: Date;
-  doneAt?: Date;
-}
-
-export type JobStatus = 'waiting' | 'reserved' | 'done' | 'failed';

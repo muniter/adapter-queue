@@ -1,19 +1,17 @@
 import { EventEmitter } from 'events';
-import type { Job, RetryableJob, JobStatus, JobMeta, QueueMessage, QueueEvent } from '../interfaces/job.ts';
+import type { Job, JobStatus, JobMeta, QueueMessage, QueueEvent } from '../interfaces/job.ts';
 import { DefaultSerializer } from './serializer.ts';
 import type { Serializer } from './serializer.ts';
 
 export abstract class Queue extends EventEmitter {
   protected ttrDefault = 300;
-  protected attemptsDefault = 1;
   protected serializer: Serializer = new DefaultSerializer();
   private pushOpts: Partial<JobMeta> = {};
 
-  constructor(options: { serializer?: Serializer; ttrDefault?: number; attemptsDefault?: number } = {}) {
+  constructor(options: { serializer?: Serializer; ttrDefault?: number } = {}) {
     super();
     if (options.serializer) this.serializer = options.serializer;
     if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
-    if (options.attemptsDefault) this.attemptsDefault = options.attemptsDefault;
   }
 
   ttr(value: number): this {
@@ -36,7 +34,6 @@ export abstract class Queue extends EventEmitter {
       ttr: this.pushOpts.ttr ?? this.ttrDefault,
       delay: this.pushOpts.delay ?? 0,
       priority: this.pushOpts.priority ?? 0,
-      attempt: 0,
       pushedAt: new Date()
     };
 
@@ -97,27 +94,7 @@ export abstract class Queue extends EventEmitter {
     const errorEvent: QueueEvent = { type: 'afterError', id: message.id, job, meta: message.meta, error };
     this.emit('afterError', errorEvent);
 
-    const currentAttempt = (message.meta.attempt || 0) + 1;
-    const maxAttempts = this.attemptsDefault;
-
-    let shouldRetry = currentAttempt < maxAttempts;
-
-    if (this.isRetryableJob(job)) {
-      shouldRetry = shouldRetry && job.canRetry(currentAttempt, error);
-    }
-
-    if (shouldRetry) {
-      message.meta.attempt = currentAttempt;
-      const payload = this.serializer.serialize(job);
-      await this.pushMessage(payload, message.meta);
-      return true;
-    }
-
     return true;
-  }
-
-  protected isRetryableJob(job: any): job is RetryableJob {
-    return typeof job.getTtr === 'function' && typeof job.canRetry === 'function';
   }
 
   private async sleep(ms: number): Promise<void> {

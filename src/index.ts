@@ -5,7 +5,6 @@ export { Worker, runWorker } from './worker/worker.ts';
 
 export type { 
   Job, 
-  RetryableJob, 
   JobStatus, 
   JobMeta, 
   QueueMessage, 

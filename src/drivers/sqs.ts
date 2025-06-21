@@ -37,7 +37,7 @@ export class SqsQueue extends Queue {
   constructor(
     private client: SQSClient,
     private queueUrl: string,
-    options: { serializer?: any; ttrDefault?: number; attemptsDefault?: number } = {}
+    options: { serializer?: any; ttrDefault?: number } = {}
   ) {
     super(options);
   }
@@ -50,9 +50,6 @@ export class SqsQueue extends Queue {
     }
     if (meta.priority) {
       messageAttributes.priority = { StringValue: meta.priority.toString(), DataType: 'Number' };
-    }
-    if (meta.attempt !== undefined) {
-      messageAttributes.attempt = { StringValue: meta.attempt.toString(), DataType: 'Number' };
     }
 
     const result = await this.client.sendMessage({
@@ -87,9 +84,6 @@ export class SqsQueue extends Queue {
     if (message.MessageAttributes?.priority) {
       meta.priority = parseInt(message.MessageAttributes.priority.StringValue);
     }
-    if (message.MessageAttributes?.attempt) {
-      meta.attempt = parseInt(message.MessageAttributes.attempt.StringValue);
-    }
 
     if (meta.ttr) {
       await this.client.changeMessageVisibility({
@@ -122,25 +116,5 @@ export class SqsQueue extends Queue {
     return 'done';
   }
 
-  protected override async handleError(message: QueueMessage, error: unknown): Promise<boolean> {
-    const job = this.serializer.deserialize(message.payload);
-    const errorEvent = { type: 'afterError' as const, id: message.id, job, meta: message.meta, error };
-    this.emit('afterError', errorEvent);
-
-    const currentAttempt = (message.meta.attempt || 0) + 1;
-    const maxAttempts = this.attemptsDefault;
-
-    let shouldRetry = currentAttempt < maxAttempts;
-
-    if (this.isRetryableJob(job)) {
-      shouldRetry = shouldRetry && job.canRetry(currentAttempt, error);
-    }
-
-    if (!shouldRetry) {
-      await this.release(message);
-    }
-
-    return true;
-  }
 
 }

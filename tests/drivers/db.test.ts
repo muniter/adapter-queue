@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DbQueue } from '../../src/drivers/db.ts';
 import { TestDatabaseAdapter } from '../mocks/test-database-adapter.ts';
-import { SimpleJob, FailingJob, RetryableTestJob } from '../jobs/test-job.ts';
+import { SimpleJob, FailingJob } from '../jobs/test-job.ts';
 
 describe('DbQueue', () => {
   let queue: DbQueue;
@@ -14,7 +14,6 @@ describe('DbQueue', () => {
     // Register job classes for serialization
     queue['serializer'].registerJob('SimpleJob', SimpleJob);
     queue['serializer'].registerJob('FailingJob', FailingJob);
-    queue['serializer'].registerJob('RetryableTestJob', RetryableTestJob);
   });
 
   describe('push and reserve cycle', () => {
@@ -86,22 +85,6 @@ describe('DbQueue', () => {
       expect(afterErrorSpy).toHaveBeenCalledOnce();
     });
 
-    it('should retry retryable jobs', async () => {
-      const queue2 = new DbQueue(dbAdapter, { attemptsDefault: 3 });
-      const job = new RetryableTestJob('retry test', 3, 2);
-      await queue2.push(job);
-
-      const afterErrorSpy = vi.fn();
-      queue2.on('afterError', afterErrorSpy);
-
-      // First attempt should fail and create retry
-      let message = await queue2['reserve'](0);
-      await queue2['handleMessage'](message!);
-      expect(afterErrorSpy).toHaveBeenCalledOnce();
-
-      // Should have created a retry job
-      expect(dbAdapter.getAllJobs().length).toBeGreaterThan(1);
-    });
   });
 
   describe('job status', () => {

@@ -12,8 +12,7 @@ export class TestDatabaseAdapter implements DatabaseAdapter {
       id,
       payload,
       meta,
-      pushedAt: new Date(),
-      attempt: meta.attempt || 0
+      pushedAt: new Date()
     };
 
     this.jobs.set(id, job);
@@ -75,14 +74,6 @@ export class TestDatabaseAdapter implements DatabaseAdapter {
     return 'waiting';
   }
 
-  async updateJobAttempt(id: string, attempt: number): Promise<void> {
-    const job = this.jobs.get(id);
-    if (job) {
-      job.attempt = attempt;
-      job.meta.attempt = attempt;
-      this.jobs.set(id, job);
-    }
-  }
 
   getAllJobs(): QueueJobRecord[] {
     return Array.from(this.jobs.values());

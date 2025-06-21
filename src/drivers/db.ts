@@ -5,7 +5,7 @@ import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts'
 export class DbQueue extends Queue {
   constructor(
     private db: DatabaseAdapter,
-    options: { serializer?: any; ttrDefault?: number; attemptsDefault?: number } = {}
+    options: { serializer?: any; ttrDefault?: number } = {}
   ) {
     super(options);
   }
@@ -37,29 +37,5 @@ export class DbQueue extends Queue {
     return status || 'done';
   }
 
-  protected override async handleError(message: QueueMessage, error: unknown): Promise<boolean> {
-    const job = this.serializer.deserialize(message.payload);
-    const errorEvent = { type: 'afterError' as const, id: message.id, job, meta: message.meta, error };
-    this.emit('afterError', errorEvent);
-
-    const currentAttempt = (message.meta.attempt || 0) + 1;
-    const maxAttempts = this.attemptsDefault;
-
-    let shouldRetry = currentAttempt < maxAttempts;
-
-    if (this.isRetryableJob(job)) {
-      shouldRetry = shouldRetry && job.canRetry(currentAttempt, error);
-    }
-
-    if (shouldRetry) {
-      await this.db.updateJobAttempt(message.id, currentAttempt);
-      message.meta.attempt = currentAttempt;
-      const payload = this.serializer.serialize(job);
-      await this.pushMessage(payload, message.meta);
-      return true;
-    }
-
-    return true;
-  }
 
 }
