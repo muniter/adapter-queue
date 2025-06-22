@@ -184,9 +184,11 @@ export class MongoDatabaseAdapter implements DatabaseAdapter {
 
 // Main export - constructor pattern
 export class MongoQueue<T = Record<string, any>> extends DbQueue<T> {
+  mongoAdapter: MongoDatabaseAdapter;
   constructor(config: { collection: MongoCollection }) {
     const adapter = new MongoDatabaseAdapter(config.collection);
     super(adapter);
+    this.mongoAdapter = adapter;
   }
 }
 

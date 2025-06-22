@@ -90,6 +90,9 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       const factoryQueue = await createMongoQueueFromUrl<TestJobs>(mongoUrl, testDatabase, 'url_test');
       expect(factoryQueue).toBeInstanceOf(MongoQueue);
       
+      // Wait for indexes to be created before closing the client
+      await factoryQueue.mongoAdapter.ensureIndexes();
+      
       // Clean up the client created by the factory
       const factoryClient = (factoryQueue as any).db.col.client;
       if (factoryClient && factoryClient.close) {
