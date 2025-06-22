@@ -1,4 +1,9 @@
-import { SimplifiedSQSClient } from "../../src/drivers/sqs";
+import type { SimplifiedSQSClient } from "../../src/drivers/sqs.js";
+import type { 
+  ReceiveMessageCommandOutput, 
+  DeleteMessageCommandOutput, 
+  ChangeMessageVisibilityCommandOutput 
+} from "@aws-sdk/client-sqs";
 
 interface StoredMessage {
   MessageId: string;
@@ -58,7 +63,10 @@ export class TestSQSClient implements SimplifiedSQSClient {
     // Track sent message for testing
     this.sentMessages.push(params);
 
-    return { MessageId: messageId };
+    return { 
+      MessageId: messageId,
+      $metadata: {}
+    };
   }
 
   async receiveMessage(params: {
@@ -66,12 +74,7 @@ export class TestSQSClient implements SimplifiedSQSClient {
     MaxNumberOfMessages?: number;
     WaitTimeSeconds?: number;
     MessageAttributeNames?: string[];
-  }): Promise<{ Messages?: Array<{
-    MessageId: string;
-    Body: string;
-    ReceiptHandle: string;
-    MessageAttributes?: Record<string, { StringValue: string }>;
-  }> }> {
+  }): Promise<ReceiveMessageCommandOutput> {
     const now = new Date();
     const messages: any[] = [];
     const maxMessages = params.MaxNumberOfMessages || 1;
@@ -94,13 +97,19 @@ export class TestSQSClient implements SimplifiedSQSClient {
       if (messages.length >= maxMessages) break;
     }
 
-    return { Messages: messages };
+    return { 
+      Messages: messages,
+      $metadata: {
+        httpStatusCode: 200,
+        requestId: 'test-request-id'
+      }
+    } as ReceiveMessageCommandOutput;
   }
 
   async deleteMessage(params: {
     QueueUrl: string;
     ReceiptHandle: string;
-  }): Promise<void> {
+  }): Promise<DeleteMessageCommandOutput> {
     for (const [id, message] of this.messages.entries()) {
       if (message.ReceiptHandle === params.ReceiptHandle) {
         // Track deleted message for testing
@@ -109,13 +118,20 @@ export class TestSQSClient implements SimplifiedSQSClient {
         break;
       }
     }
+    
+    return {
+      $metadata: {
+        httpStatusCode: 200,
+        requestId: 'test-request-id'
+      }
+    } as DeleteMessageCommandOutput;
   }
 
   async changeMessageVisibility(params: {
     QueueUrl: string;
     ReceiptHandle: string;
     VisibilityTimeout: number;
-  }): Promise<void> {
+  }): Promise<ChangeMessageVisibilityCommandOutput> {
     for (const [id, message] of this.messages.entries()) {
       if (message.ReceiptHandle === params.ReceiptHandle) {
         message.visibilityTimeoutUntil = new Date(Date.now() + params.VisibilityTimeout * 1000);
@@ -123,6 +139,13 @@ export class TestSQSClient implements SimplifiedSQSClient {
         break;
       }
     }
+    
+    return {
+      $metadata: {
+        httpStatusCode: 200,
+        requestId: 'test-request-id'
+      }
+    } as ChangeMessageVisibilityCommandOutput;
   }
 
   getAllMessages(): StoredMessage[] {

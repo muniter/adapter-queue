@@ -35,8 +35,8 @@ describe('SqsQueue', () => {
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const sentMessage = sqsClient.sentMessages[0];
-      expect(sentMessage.MessageAttributes?.ttr?.StringValue).toBe('600');
-      expect(sentMessage.DelaySeconds).toBe(30);
+      expect(sentMessage?.MessageAttributes?.ttr?.StringValue).toBe('600');
+      expect(sentMessage?.DelaySeconds).toBe(30);
     });
 
     it('should respect delay seconds', async () => {
@@ -47,7 +47,7 @@ describe('SqsQueue', () => {
 
       expect(sqsClient.sentMessages).toHaveLength(1);
       const message = sqsClient.sentMessages[0];
-      expect(message.DelaySeconds).toBe(30);
+      expect(message?.DelaySeconds).toBe(30);
     });
 
     it('should handle job processing', async () => {

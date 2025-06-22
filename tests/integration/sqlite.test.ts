@@ -86,9 +86,9 @@ describe('SQLite Integration Tests', () => {
       expect(await queue.status(id)).toBe('waiting');
       
       // Verify job is stored in database
-      const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(parseInt(id));
+      const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(parseInt(id)) as any;
       expect(job).toBeTruthy();
-      expect(job.status).toBe('waiting');
+      expect(job?.status).toBe('waiting');
     });
 
     it('should handle job delays correctly', async () => {
@@ -170,8 +170,8 @@ describe('SQLite Integration Tests', () => {
       });
 
       // Verify TTR is stored correctly
-      const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(parseInt(id));
-      expect(job.ttr).toBe(10);
+      const job = db.prepare('SELECT * FROM jobs WHERE id = ?').get(parseInt(id)) as any;
+      expect(job?.ttr).toBe(10);
     });
   });
 

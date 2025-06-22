@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Queue } from '../../src/core/queue.ts';
-import { JobMeta, QueueMessage } from '../../src/interfaces/job.ts';
+import type { JobMeta, QueueMessage, DbJobRequest } from '../../src/interfaces/job.ts';
 
 interface TestJobs {
   'test-job': { data: string };
   'math-job': { a: number; b: number };
 }
 
-class TestQueue extends Queue<TestJobs> {
-  public messages: Array<{ payload: Buffer; meta: JobMeta; id: string }> = [];
+class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
+  public messages: Array<{ payload: string; meta: JobMeta; id: string }> = [];
   private nextId = 1;
 
-  protected async pushMessage(payload: Buffer, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
     const id = this.nextId.toString();
     this.nextId++;
     this.messages.push({ payload, meta, id });
@@ -53,9 +53,9 @@ describe('Queue', () => {
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
-      expect(queue.messages[0].meta.ttr).toBe(300);
-      expect(queue.messages[0].meta.delay).toBe(0);
-      expect(queue.messages[0].meta.priority).toBe(0);
+      expect(queue.messages[0]?.meta.ttr).toBe(300);
+      expect(queue.messages[0]?.meta.delay).toBe(0);
+      expect(queue.messages[0]?.meta.priority).toBe(0);
     });
 
     it('should add a job with custom settings using new API', async () => {
@@ -68,9 +68,9 @@ describe('Queue', () => {
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
-      expect(queue.messages[0].meta.ttr).toBe(600);
-      expect(queue.messages[0].meta.delay).toBe(30);
-      expect(queue.messages[0].meta.priority).toBe(5);
+      expect(queue.messages[0]?.meta.ttr).toBe(600);
+      expect(queue.messages[0]?.meta.delay).toBe(30);
+      expect(queue.messages[0]?.meta.priority).toBe(5);
     });
 
     it('should emit beforePush and afterPush events', async () => {
@@ -98,8 +98,8 @@ describe('Queue', () => {
       await queue.addJob('test-job', { payload: { data: 'job1' }, ttr: 600 });
       await queue.addJob('test-job', { payload: { data: 'job2' } });
 
-      expect(queue.messages[0].meta.ttr).toBe(600);
-      expect(queue.messages[1].meta.ttr).toBe(300); // back to default
+      expect(queue.messages[0]?.meta.ttr).toBe(600);
+      expect(queue.messages[1]?.meta.ttr).toBe(300); // back to default
     });
   });
 
@@ -108,14 +108,14 @@ describe('Queue', () => {
       const handlerSpy = vi.fn().mockResolvedValue(undefined);
       queue.onJob('test-job', handlerSpy);
 
-      const payload = Buffer.from(JSON.stringify({
+      const payloadString = JSON.stringify({
         name: 'test-job',
         payload: { data: 'test data' }
-      }));
+      });
       
       const message: QueueMessage = {
         id: '1',
-        payload,
+        payload: payloadString,
         meta: { ttr: 300 }
       };
 
@@ -134,14 +134,14 @@ describe('Queue', () => {
       queue.on('afterExec', afterExecSpy);
       queue.onJob('test-job', handlerSpy);
 
-      const payload = Buffer.from(JSON.stringify({
+      const payloadString = JSON.stringify({
         name: 'test-job',
         payload: { data: 'test data' }
-      }));
+      });
       
       const message: QueueMessage = {
         id: '1',
-        payload,
+        payload: payloadString,
         meta: { ttr: 300 }
       };
 
@@ -168,14 +168,14 @@ describe('Queue', () => {
       queue.onJob('test-job', handlerSpy);
       queue.on('afterError', errorSpy);
 
-      const payload = Buffer.from(JSON.stringify({
+      const payloadString = JSON.stringify({
         name: 'test-job',
         payload: { data: 'test data' }
-      }));
+      });
       
       const message: QueueMessage = {
         id: '1',
-        payload,
+        payload: payloadString,
         meta: { ttr: 300 }
       };
 
@@ -197,14 +197,14 @@ describe('Queue', () => {
       const errorSpy = vi.fn();
       queue.on('afterError', errorSpy);
 
-      const payload = Buffer.from(JSON.stringify({
+      const payloadString = JSON.stringify({
         name: 'unregistered-job',
         payload: { data: 'test data' }
-      }));
+      });
       
       const message: QueueMessage = {
         id: '1',
-        payload,
+        payload: payloadString,
         meta: { ttr: 300 }
       };
 

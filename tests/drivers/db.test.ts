@@ -36,7 +36,7 @@ describe('DbQueue', () => {
       expect(immediateReserve).toBeNull();
       
       // In a real test, we'd wait or mock time
-      expect(dbAdapter.jobsArray[0].meta.delay).toBe(5);
+      expect(dbAdapter.jobsArray[0]?.meta.delay).toBe(5);
     });
 
     it('should handle job execution lifecycle', async () => {
@@ -90,7 +90,7 @@ describe('DbQueue', () => {
       expect(await queue.status(id)).toBe('reserved');
       
       // After completing
-      await queue['release']({ id, payload: Buffer.from(''), meta: {} });
+      await queue['release']({ id, payload: '', meta: {} });
       expect(await queue.status(id)).toBe('done');
     });
   });

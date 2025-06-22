@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { MongoClient, ObjectId } from 'mongodb';
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
+import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { MongoQueue, createMongoQueue, createMongoQueueFromUrl, MongoDatabaseAdapter } from '../../src/adapters/mongodb.ts';
 
 interface TestJobs {
@@ -67,12 +67,16 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       // Add a job to trigger index creation
       await queue.addJob('simple-job', { payload: { data: 'test' } });
       
+      // Wait a bit for async index creation to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Check that indexes exist
       const db = client.db(testDatabase);
       const collection = db.collection(testCollection);
       const indexes = await collection.listIndexes().toArray();
       
-      expect(indexes.length).toBeGreaterThan(1); // Should have more than just the default _id index
+      // Should have the default _id index plus our custom indexes (at least 2 total)
+      expect(indexes.length).toBeGreaterThanOrEqual(2);
     });
   });
 

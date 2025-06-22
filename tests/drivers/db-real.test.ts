@@ -90,11 +90,11 @@ describe('DbQueue with Real SQLite Adapter', () => {
       const jobs = db.prepare('SELECT * FROM jobs').all();
       expect(jobs).toHaveLength(1);
       
-      const job = jobs[0];
-      expect(job.status).toBe('waiting');
+      const job = jobs[0] as any;
+      expect(job?.status).toBe('waiting');
       
       // Verify the payload contains our data (it's a serialized job request)
-      const payloadStr = job.payload.toString();
+      const payloadStr = job?.payload?.toString();
       expect(payloadStr).toContain('persistent');
     });
 
@@ -110,8 +110,8 @@ describe('DbQueue with Real SQLite Adapter', () => {
       expect(new Set(jobs).size).toBe(3); // All IDs should be unique
       
       // Verify all jobs are in database
-      const jobCount = db.prepare('SELECT COUNT(*) as count FROM jobs').get();
-      expect(jobCount.count).toBe(3);
+      const jobCount = db.prepare('SELECT COUNT(*) as count FROM jobs').get() as any;
+      expect(jobCount?.count).toBe(3);
     });
 
     it('should properly handle database transactions', async () => {
@@ -180,8 +180,8 @@ describe('DbQueue with Real SQLite Adapter', () => {
       const insertTime = Date.now() - startTime;
       
       // Verify all jobs were inserted
-      const count = db.prepare('SELECT COUNT(*) as count FROM jobs').get();
-      expect(count.count).toBe(jobCount);
+      const count = db.prepare('SELECT COUNT(*) as count FROM jobs').get() as any;
+      expect(count?.count).toBe(jobCount);
       
       // Should be reasonably fast (less than 1 second for 100 jobs)
       expect(insertTime).toBeLessThan(1000);

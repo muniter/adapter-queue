@@ -1,4 +1,4 @@
-export type JobStatus = 'waiting' | 'delayed' | 'reserved' | 'done';
+export type JobStatus = 'waiting' | 'delayed' | 'reserved' | 'done' | 'failed';
 
 export interface JobMeta {
   ttr?: number;

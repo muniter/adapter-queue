@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { MongoClient, ObjectId } from 'mongodb';
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
+import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { MongoQueue, createMongoQueue, MongoDatabaseAdapter } from '../../src/adapters/mongodb.ts';
 
 interface TestJobs {
@@ -62,8 +62,8 @@ describe.only('MongoDB Debug Tests', () => {
     expect(jobs).toHaveLength(1);
     
     const job = jobs[0];
-    expect(job.status).toBe('waiting');
-    expect(job.payload).toBeTruthy();
+    expect(job?.status).toBe('waiting');
+    expect(job?.payload).toBeTruthy();
     
     console.log('=== STEP 3: Checking job status ===');
     const status = await queue.status(jobId);

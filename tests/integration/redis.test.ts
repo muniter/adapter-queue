@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { createClient } from 'redis';
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
+import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { RedisQueue, createRedisQueue, RedisDatabaseAdapter } from '../../src/adapters/redis.ts';
 
 interface TestJobs {

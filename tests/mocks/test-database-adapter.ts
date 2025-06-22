@@ -1,4 +1,5 @@
-import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '../../src/interfaces/database.ts';
+import type { DatabaseAdapter, QueueJobRecord } from '../../src/interfaces/database.ts';
+import type { JobMeta, JobStatus } from '../../src/interfaces/job.ts';
 
 export class TestDatabaseAdapter implements DatabaseAdapter {
   private jobs: Map<string, QueueJobRecord> = new Map();

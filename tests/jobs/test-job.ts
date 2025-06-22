@@ -1,42 +1,19 @@
-import { Job, Queue } from '../../src/index.ts';
+import type { Queue } from '../../src/index.ts';
 
-export class SimpleJob implements Job<string> {
-  constructor(public data: string) {}
+// Simple test job handler functions (not classes)
+export const simpleJobHandler = async (payload: { data: string }): Promise<string> => {
+  return `Processed: ${payload.data}`;
+};
 
-  async execute(queue: Queue): Promise<string> {
-    return `Processed: ${this.data}`;
+export const failingJobHandler = async (payload: { shouldFail?: boolean }): Promise<void> => {
+  if (payload.shouldFail !== false) {
+    throw new Error('Job intentionally failed');
   }
+};
 
-  serialize() {
-    return {
-      constructor: 'SimpleJob',
-      data: this.data
-    };
-  }
-
-  static deserialize(data: any): SimpleJob {
-    return new SimpleJob(data.data);
-  }
-}
-
-export class FailingJob implements Job<void> {
-  constructor(public shouldFail: boolean = true) {}
-
-  async execute(queue: Queue): Promise<void> {
-    if (this.shouldFail) {
-      throw new Error('Job intentionally failed');
-    }
-  }
-
-  serialize() {
-    return {
-      constructor: 'FailingJob',
-      shouldFail: this.shouldFail
-    };
-  }
-
-  static deserialize(data: any): FailingJob {
-    return new FailingJob(data.shouldFail);
-  }
+// Test job types for type safety
+export interface TestJobs {
+  'simple-job': { data: string };
+  'failing-job': { shouldFail?: boolean };
 }
 
