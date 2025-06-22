@@ -136,13 +136,13 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     this.redis = new RedisAdapter(redisClient);
   }
 
-  protected async pushMessage(payload: Buffer, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
     const id = (await this.redis.incr(this.idKey)).toString();
     const ttr = meta.ttr || this.ttrDefault;
     const now = Math.floor(Date.now() / 1000);
     
     // Store message in Yii2 format: "ttr;jsonPayload"
-    const message = `${ttr};${payload.toString('utf8')}`;
+    const message = `${ttr};${payload}`;
     await this.redis.hset(this.messagesKey, id, message);
     
     if (meta.delay && meta.delay > 0) {
@@ -208,7 +208,7 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     
     return {
       id,
-      payload: Buffer.from(payloadStr, 'utf8'),
+      payload: payloadStr,
       meta: {
         ttr,
         pushedAt: new Date()

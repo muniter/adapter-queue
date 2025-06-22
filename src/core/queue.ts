@@ -86,7 +86,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
     this.emit('beforePush', event);
 
     const jobData: JobData = { name: name as string, payload };
-    const serializedPayload = Buffer.from(JSON.stringify(jobData));
+    const serializedPayload = JSON.stringify(jobData);
     const id = await this.pushMessage(serializedPayload, meta);
 
     const afterEvent: QueueEvent = { type: 'afterPush', id, name: name as string, payload, meta };
@@ -176,7 +176,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    */
   protected async handleMessage(message: QueueMessage): Promise<boolean> {
     try {
-      const jobData: JobData = JSON.parse(message.payload.toString());
+      const jobData: JobData = JSON.parse(message.payload);
       const { name, payload } = jobData;
 
       const beforeEvent: QueueEvent = { type: 'beforeExec', id: message.id, name, payload, meta: message.meta };
@@ -214,7 +214,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    */
   protected async handleError(message: QueueMessage, error: unknown): Promise<boolean> {
     try {
-      const jobData: JobData = JSON.parse(message.payload.toString());
+      const jobData: JobData = JSON.parse(message.payload);
       const { name, payload } = jobData;
       
       const errorEvent: QueueEvent = { type: 'afterError', id: message.id, name, payload, meta: message.meta, error };
@@ -237,13 +237,13 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   /**
    * Pushes a new message to the queue storage backend.
    * 
-   * @param payload - Serialized job data as Buffer
+   * @param payload - Serialized job data as string
    * @param meta - Job metadata including TTR, delay, priority
    * @returns Promise resolving to unique job ID
    * @protected
    * @abstract
    */
-  protected abstract pushMessage(payload: Buffer, meta: JobMeta): Promise<string>;
+  protected abstract pushMessage(payload: string, meta: JobMeta): Promise<string>;
   
   /**
    * Reserves the next available job from the queue for processing.

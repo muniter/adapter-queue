@@ -12,7 +12,7 @@ export interface JobMeta {
 
 export interface QueueMessage {
   id: string;
-  payload: Buffer;
+  payload: string;
   meta: JobMeta;
 }
 

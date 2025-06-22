@@ -10,8 +10,8 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
     super(options);
   }
 
-  protected async pushMessage(payload: Buffer, meta: JobMeta): Promise<string> {
-    return await this.db.insertJob(payload, meta);
+  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
+    return await this.db.insertJob(Buffer.from(payload), meta);
   }
 
   protected async reserve(timeout: number): Promise<QueueMessage | null> {
@@ -23,7 +23,7 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
 
     return {
       id: record.id,
-      payload: record.payload,
+      payload: record.payload.toString(),
       meta: record.meta
     };
   }

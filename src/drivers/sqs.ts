@@ -42,7 +42,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
     super(options);
   }
 
-  protected async pushMessage(payload: Buffer, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
     const messageAttributes: Record<string, { StringValue: string; DataType: string }> = {};
     
     if (meta.ttr) {
@@ -54,7 +54,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
 
     const result = await this.client.sendMessage({
       QueueUrl: this.queueUrl,
-      MessageBody: payload.toString('utf8'),
+      MessageBody: payload,
       DelaySeconds: meta.delay || 0,
       MessageAttributes: messageAttributes
     });
@@ -81,7 +81,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
     if (!message || !message.Body || !message.MessageId || !message.ReceiptHandle) {
       return null;
     }
-    const payload = Buffer.from(message.Body, 'utf8');
+    const payload = message.Body;
     
     const meta: JobMeta = {};
     if (message.MessageAttributes?.ttr?.StringValue) {
