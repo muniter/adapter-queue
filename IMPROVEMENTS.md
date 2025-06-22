@@ -99,20 +99,13 @@ const serializer = new RegistrySerializer(registry);
 
 **Proposed Solution**:
 ```typescript
-// Option 1: Options parameter
+// Options parameter approach
 await queue.push(job, {
   delay: 5000,
   priority: 10,
   attempts: 5,
   backoff: { type: 'exponential', delay: 2000 }
 });
-
-// Option 2: Fluent API (current attempt doesn't work properly)
-await queue
-  .priority(10)
-  .delay(5000)
-  .attempts(5)
-  .push(job);
 ```
 
 ### 5. Overly Complex Job Classes

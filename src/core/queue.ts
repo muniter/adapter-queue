@@ -2,7 +2,7 @@ import { EventEmitter } from 'events';
 import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest } from '../interfaces/job.ts';
 
 /**
- * Abstract queue class providing event-based job processing with fluent API.
+ * Abstract queue class providing event-based job processing.
  * 
  * @template TJobMap - A map of job names to their payload types for type safety.
  * 
