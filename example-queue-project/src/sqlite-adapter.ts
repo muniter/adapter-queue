@@ -38,26 +38,45 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
       [now]
     );
     
+    // Atomically reserve a job using UPDATE with RETURNING (if supported) or UPDATE + SELECT
+    // For SQLite, we'll use a subquery to atomically reserve the next available job
+    const result = await run(
+      `UPDATE jobs SET 
+        status = 'reserved',
+        reserve_time = ?,
+        expire_time = ?
+       WHERE id = (
+         SELECT id FROM jobs 
+         WHERE status = 'waiting' 
+         AND (delay_time IS NULL OR delay_time <= ?)
+         ORDER BY priority DESC, push_time ASC 
+         LIMIT 1
+       )`,
+      [now, now + 300 * 1000, now] // Default 5 minute TTR for now
+    );
+
+    // Check if we actually updated a row
+    if ((result as any).changes === 0) {
+      return null;
+    }
+
+    // Now get the job we just reserved
     const job = await get(
       `SELECT * FROM jobs 
-       WHERE status = 'waiting' 
-       AND (delay_time IS NULL OR delay_time <= ?)
-       ORDER BY priority DESC, push_time ASC 
+       WHERE status = 'reserved' 
+       AND reserve_time = ?
+       ORDER BY reserve_time DESC
        LIMIT 1`,
       [now]
     ) as any;
 
     if (!job) return null;
 
-    // Use the job's TTR value, not the polling timeout
-    const jobTtr = job.ttr || 300; // Default to 5 minutes if no TTR
+    // Update with the correct TTR from the job
+    const jobTtr = job.ttr || 300;
     await run(
-      `UPDATE jobs SET 
-        status = 'reserved',
-        reserve_time = ?,
-        expire_time = ?
-       WHERE id = ?`,
-      [now, now + jobTtr * 1000, job.id]
+      `UPDATE jobs SET expire_time = ? WHERE id = ?`,
+      [now + jobTtr * 1000, job.id]
     );
 
     return {
