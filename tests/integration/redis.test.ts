@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import { createClient } from 'redis';
+import { GenericContainer, StartedTestContainer } from 'testcontainers';
 import { RedisQueue, createRedisQueue, RedisDatabaseAdapter } from '../../src/adapters/redis.ts';
 
 interface TestJobs {
@@ -9,45 +10,39 @@ interface TestJobs {
   'priority-job': { priority: number; data: string };
 }
 
-// Helper to check if Redis is available
-async function isRedisAvailable(): Promise<boolean> {
-  try {
-    const client = createClient({ 
-      socket: { connectTimeout: 1000 }
-    });
-    await client.connect();
-    await client.ping();
-    await client.quit();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-describe('Redis Integration Tests', () => {
-  let redisAvailable = false;
+describe('Redis Integration Tests (with TestContainers)', () => {
+  let redisContainer: StartedTestContainer;
   let client: any;
   let queue: RedisQueue<TestJobs>;
+  let redisUrl: string;
   const testKeyPrefix = 'test:queue:jobs';
 
   beforeAll(async () => {
-    redisAvailable = await isRedisAvailable();
-    if (!redisAvailable) {
-      console.warn('Redis not available, skipping Redis integration tests');
+    // Start Redis container with non-default port to avoid conflicts
+    redisContainer = await new GenericContainer('redis:7-alpine')
+      .withExposedPorts({ container: 6379, host: 0 }) // Let Docker assign a random available port
+      .withStartupTimeout(30000)
+      .start();
+    
+    const redisPort = redisContainer.getMappedPort(6379);
+    const redisHost = redisContainer.getHost();
+    redisUrl = `redis://${redisHost}:${redisPort}`;
+    
+    console.log(`Redis container started at ${redisUrl}`);
+  }, 60000); // 60 second timeout for container startup
+
+  afterAll(async () => {
+    if (redisContainer) {
+      await redisContainer.stop();
     }
   });
 
   beforeEach(async () => {
-    if (!redisAvailable) return;
-    
-    client = createClient();
+    client = createClient({ url: redisUrl });
     await client.connect();
     
     // Clean up any existing test data
-    const keys = await client.keys(`${testKeyPrefix}*`);
-    if (keys.length > 0) {
-      await client.del(keys);
-    }
+    await client.flushDb();
     
     queue = new RedisQueue<TestJobs>({ 
       client,
@@ -56,27 +51,17 @@ describe('Redis Integration Tests', () => {
   });
 
   afterEach(async () => {
-    if (!redisAvailable || !client) return;
-    
-    // Clean up test data
-    const keys = await client.keys(`${testKeyPrefix}*`);
-    if (keys.length > 0) {
-      await client.del(keys);
+    if (client) {
+      await client.quit();
     }
-    
-    await client.quit();
   });
 
   describe('RedisQueue Constructor Pattern', () => {
     it('should create queue with client instance', () => {
-      if (!redisAvailable) return;
-      
       expect(queue).toBeInstanceOf(RedisQueue);
     });
 
     it('should use custom key prefix', async () => {
-      if (!redisAvailable) return;
-      
       await queue.addJob('simple-job', { payload: { data: 'test' } });
       
       // Check that keys are created with our prefix
@@ -88,9 +73,7 @@ describe('Redis Integration Tests', () => {
 
   describe('Convenience Factory', () => {
     it('should create queue with factory function', async () => {
-      if (!redisAvailable) return;
-      
-      const factoryQueue = createRedisQueue<TestJobs>();
+      const factoryQueue = createRedisQueue<TestJobs>(redisUrl);
       expect(factoryQueue).toBeInstanceOf(RedisQueue);
       
       // Clean up - the factory creates its own client
@@ -102,7 +85,6 @@ describe('Redis Integration Tests', () => {
 
   describe('Job Lifecycle', () => {
     it('should add and process jobs successfully', async () => {
-      if (!redisAvailable) return;
       
       const processedJobs: string[] = [];
       
@@ -124,7 +106,6 @@ describe('Redis Integration Tests', () => {
     });
 
     it('should handle job status tracking', async () => {
-      if (!redisAvailable) return;
       
       const id = await queue.addJob('simple-job', { payload: { data: 'status test' } });
       
@@ -138,7 +119,6 @@ describe('Redis Integration Tests', () => {
     });
 
     it('should handle job delays correctly', async () => {
-      if (!redisAvailable) return;
       
       const processedJobs: string[] = [];
       
@@ -163,7 +143,6 @@ describe('Redis Integration Tests', () => {
     });
 
     it('should handle job priorities correctly', async () => {
-      if (!redisAvailable) return;
       
       const processedJobs: Array<{ priority: number; data: string }> = [];
       
@@ -192,7 +171,6 @@ describe('Redis Integration Tests', () => {
     });
 
     it('should handle job failures and errors', async () => {
-      if (!redisAvailable) return;
       
       const errors: any[] = [];
       
@@ -216,7 +194,6 @@ describe('Redis Integration Tests', () => {
 
   describe('TTR (Time To Run) Handling', () => {
     it('should respect job TTR settings', async () => {
-      if (!redisAvailable) return;
       
       const id = await queue.addJob('simple-job', { 
         payload: { data: 'ttr test' },
@@ -231,7 +208,6 @@ describe('Redis Integration Tests', () => {
 
   describe('Redis Persistence', () => {
     it('should persist jobs across queue instances', async () => {
-      if (!redisAvailable) return;
       
       // Add job with first queue instance
       const id = await queue.addJob('simple-job', { payload: { data: 'persistent' } });
@@ -250,7 +226,6 @@ describe('Redis Integration Tests', () => {
 
   describe('Adapter Direct Usage', () => {
     it('should work with adapter directly', async () => {
-      if (!redisAvailable) return;
       
       const adapter = new RedisDatabaseAdapter(client, testKeyPrefix);
       const payload = Buffer.from(JSON.stringify({ data: 'direct adapter test' }));
@@ -271,7 +246,6 @@ describe('Redis Integration Tests', () => {
 
   describe('Concurrent Job Processing', () => {
     it('should handle concurrent job reservation correctly', async () => {
-      if (!redisAvailable) return;
       
       const processedJobs: string[] = [];
       
