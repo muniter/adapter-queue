@@ -13,7 +13,8 @@ This example shows the **separation of concerns** pattern recommended for produc
 
 ## Features Demonstrated
 
-- **Multiple Queue Types**: Database queue (SQLite) and File queue
+- **Multiple Queue Types**: SQLite, Redis, SQS, and File queues with clean adapter APIs
+- **New Adapter System**: Clean drizzle-style APIs for queue creation
 - **Type Safety**: Full TypeScript support with job payload validation
 - **Event System**: Comprehensive logging via queue lifecycle events
 - **Worker Management**: Using Worker class for clean process organization
@@ -28,7 +29,24 @@ This example shows the **separation of concerns** pattern recommended for produc
 pnpm install
 ```
 
-2. Build the project:
+2. Install the queue drivers you want to use (peer dependencies):
+
+For SQLite queue:
+```bash
+pnpm add better-sqlite3
+```
+
+For Redis queue:
+```bash
+pnpm add redis
+```
+
+For SQS queue:
+```bash
+pnpm add @aws-sdk/client-sqs
+```
+
+3. Build the project:
 ```bash
 pnpm run build
 ```
@@ -88,13 +106,10 @@ In a real production environment, you would:
 
 ## Files
 
-- `queues.ts` - Centralized queue configuration, initialization, and event listeners
-- `add-job.ts` - Job producer (adds jobs to queues)
-- `process-jobs.ts` - Job consumer (processes jobs continuously)  
-- `types.ts` - Shared job type definitions
-- `sqlite-adapter.ts` - Database adapter implementation
-- `database.ts` - Database initialization
-- `index.ts` - Original combined example (legacy)
+- `general-queue.ts` - SQLite queue using new adapter API
+- `redis-queue.ts` - Redis queue using new adapter API  
+- `email-queue.ts` - File and SQS queues using new adapter APIs
+- `index.ts` - Main demo entry point
 
 ## Try It
 

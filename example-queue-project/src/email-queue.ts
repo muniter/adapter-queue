@@ -1,5 +1,5 @@
-import { SQS } from "@aws-sdk/client-sqs";
-import { FileQueue, SqsQueue } from "@muniter/queue";
+import { FileQueue } from "@muniter/queue";
+import { createSQSQueue } from "@muniter/queue/sqs";
 
 interface EmailJobs {
   "welcome-email": { to: string; name: string };
@@ -11,15 +11,12 @@ export const emailQueueFile = new FileQueue<EmailJobs>({
   path: "./email-queue",
 });
 
-// SQS-based queue (for production)
-const sqsClient = new SQS({
-  region: "us-east-1",
-  profile: "javier",
-});
-
-export const emailQueueSqs = new SqsQueue<EmailJobs>(
-  sqsClient,
-  "https://sqs.us-east-1.amazonaws.com/428011609647/test-queue"
+// SQS-based queue (for production) - simple API
+export const emailQueueSqs = createSQSQueue<EmailJobs>(
+  "https://sqs.us-east-1.amazonaws.com/428011609647/test-queue",
+  {
+    profile: "javier",
+  }
 );
 
 export const emailQueue = emailQueueSqs;
@@ -52,15 +49,17 @@ emailQueue.onJob("notification", async (payload) => {
 
 emailQueue.on("beforeExec", (event) => {
   console.log(
-    `\n[emailQueue][${emailQueue.constructor.name}][${new Date().toISOString()}] Starting ${event.name} job ${
-      event.id
-    }...`
+    `\n[emailQueue][${
+      emailQueue.constructor.name
+    }][${new Date().toISOString()}] Starting ${event.name} job ${event.id}...`
   );
 });
 
 emailQueue.on("afterExec", (event) => {
   console.log(
-    `[emailQueue][${emailQueue.constructor.name}][${new Date().toISOString()}] Email job ${event.id} (${
+    `[emailQueue][${
+      emailQueue.constructor.name
+    }][${new Date().toISOString()}] Email job ${event.id} (${
       event.name
     }) completed successfully`
   );
@@ -68,7 +67,9 @@ emailQueue.on("afterExec", (event) => {
 
 emailQueue.on("afterError", (event) => {
   console.error(
-    `[emailQueue][${emailQueue.constructor.name}][${new Date().toISOString()}] Email job ${event.id} (${
+    `[emailQueue][${
+      emailQueue.constructor.name
+    }][${new Date().toISOString()}] Email job ${event.id} (${
       event.name
     }) failed:`,
     event.error

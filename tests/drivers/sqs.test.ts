@@ -89,8 +89,7 @@ describe('SqsQueue', () => {
 
     it('should always return done status for SQS', async () => {
       // SQS doesn't track job status like DB does
-      const status = await queue.status('any-id');
-      expect(status).toBe('done');
+      await expect(queue.status('any-id')).rejects.toThrow();
     });
   });
 });

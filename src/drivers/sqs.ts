@@ -1,41 +1,23 @@
-import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage, SqsJobRequest } from '../interfaces/job.ts';
+import type { SQS } from "@aws-sdk/client-sqs";
+import { Queue } from "../core/queue.ts";
+import type {
+  JobStatus,
+  JobMeta,
+  QueueMessage,
+  SqsJobRequest,
+} from "../interfaces/job.ts";
 
-export interface SQSClient {
-  sendMessage(params: {
-    QueueUrl: string;
-    MessageBody: string;
-    DelaySeconds?: number;
-    MessageAttributes?: Record<string, { StringValue: string; DataType: string }>;
-  }): Promise<{ MessageId?: string; $metadata?: any }>;
-  
-  receiveMessage(params: {
-    QueueUrl: string;
-    MaxNumberOfMessages?: number;
-    WaitTimeSeconds?: number;
-    MessageAttributeNames?: string[];
-  }): Promise<{ Messages?: Array<{
-    MessageId?: string;
-    Body?: string;
-    ReceiptHandle?: string;
-    MessageAttributes?: Record<string, { StringValue?: string }>;
-  }>; $metadata?: any }>;
-  
-  deleteMessage(params: {
-    QueueUrl: string;
-    ReceiptHandle: string;
-  }): Promise<{ $metadata?: any }>;
-  
-  changeMessageVisibility(params: {
-    QueueUrl: string;
-    ReceiptHandle: string;
-    VisibilityTimeout: number;
-  }): Promise<{ $metadata?: any }>;
-}
+export type SimplifiedSQSClient = Pick<
+  SQS,
+  "sendMessage" | "receiveMessage" | "changeMessageVisibility" | "deleteMessage"
+>;
 
-export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJobRequest<any>> {
+export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
+  TJobMap,
+  SqsJobRequest<any>
+> {
   constructor(
-    private client: SQSClient,
+    private client: SimplifiedSQSClient,
     private queueUrl: string,
     options: { ttrDefault?: number } = {}
   ) {
@@ -43,24 +25,33 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
   }
 
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
-    const messageAttributes: Record<string, { StringValue: string; DataType: string }> = {};
-    
+    const messageAttributes: Record<
+      string,
+      { StringValue: string; DataType: string }
+    > = {};
+
     if (meta.ttr) {
-      messageAttributes.ttr = { StringValue: meta.ttr.toString(), DataType: 'Number' };
+      messageAttributes.ttr = {
+        StringValue: meta.ttr.toString(),
+        DataType: "Number",
+      };
     }
     if (meta.priority) {
-      messageAttributes.priority = { StringValue: meta.priority.toString(), DataType: 'Number' };
+      messageAttributes.priority = {
+        StringValue: meta.priority.toString(),
+        DataType: "Number",
+      };
     }
 
     const result = await this.client.sendMessage({
       QueueUrl: this.queueUrl,
       MessageBody: payload,
       DelaySeconds: meta.delay || 0,
-      MessageAttributes: messageAttributes
+      MessageAttributes: messageAttributes,
     });
 
     if (!result.MessageId) {
-      throw new Error('Failed to send message - no MessageId returned');
+      throw new Error("Failed to send message - no MessageId returned");
     }
     return result.MessageId;
   }
@@ -70,7 +61,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
       QueueUrl: this.queueUrl,
       MaxNumberOfMessages: 1,
       WaitTimeSeconds: timeout,
-      MessageAttributeNames: ['All']
+      MessageAttributeNames: ["All"],
     });
 
     if (!result.Messages || result.Messages.length === 0) {
@@ -78,11 +69,16 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
     }
 
     const message = result.Messages[0];
-    if (!message || !message.Body || !message.MessageId || !message.ReceiptHandle) {
+    if (
+      !message ||
+      !message.Body ||
+      !message.MessageId ||
+      !message.ReceiptHandle
+    ) {
       return null;
     }
     const payload = message.Body;
-    
+
     const meta: JobMeta = {};
     if (message.MessageAttributes?.ttr?.StringValue) {
       meta.ttr = parseInt(message.MessageAttributes.ttr.StringValue);
@@ -95,7 +91,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
       await this.client.changeMessageVisibility({
         QueueUrl: this.queueUrl,
         ReceiptHandle: message.ReceiptHandle,
-        VisibilityTimeout: meta.ttr
+        VisibilityTimeout: meta.ttr,
       });
     }
 
@@ -104,25 +100,25 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
       payload,
       meta: {
         ...meta,
-        receiptHandle: message.ReceiptHandle
-      }
+        receiptHandle: message.ReceiptHandle,
+      },
     };
   }
 
   protected async release(message: QueueMessage): Promise<void> {
     if (!message.meta.receiptHandle) {
-      throw new Error('Cannot release SQS message: receiptHandle is missing from metadata');
+      throw new Error(
+        "Cannot release SQS message: receiptHandle is missing from metadata"
+      );
     }
-    
+
     await this.client.deleteMessage({
       QueueUrl: this.queueUrl,
-      ReceiptHandle: message.meta.receiptHandle
+      ReceiptHandle: message.meta.receiptHandle,
     });
   }
 
   async status(id: string): Promise<JobStatus> {
-    return 'done';
+    throw new Error("SQS does not support status");
   }
-
-
 }

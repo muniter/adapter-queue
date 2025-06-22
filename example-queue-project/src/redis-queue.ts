@@ -1,22 +1,12 @@
-import { RedisQueue } from "@muniter/queue";
-import { createClient } from "redis";
+import { createRedisQueue } from "@muniter/queue/redis";
 
 interface EmailJobs {
   "welcome-email": { to: string; name: string };
   "notification": { to: string; subject: string; body: string };
 }
 
-// Create Redis client directly
-const redisClient = createClient({ url: 'redis://localhost:6379' });
-
-redisClient.on('error', (err) => console.error('Redis Client Error:', err));
-redisClient.on('connect', () => console.log('Redis Client Connected'));
-redisClient.on('ready', () => console.log('Redis Client Ready'));
-
-await redisClient.connect();
-
-// Create Redis queue - no adapter needed!
-export const emailQueue = new RedisQueue<EmailJobs>(redisClient, 'email');
+// Create Redis queue with simple API
+export const emailQueue = createRedisQueue<EmailJobs>('redis://localhost:6379');
 
 // Register job handlers
 emailQueue.onJob("welcome-email", async (payload) => {

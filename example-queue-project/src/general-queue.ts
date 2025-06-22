@@ -1,13 +1,11 @@
-import { DbQueue } from "@muniter/queue";
-import { SQLiteDatabaseAdapter } from "./sqlite-adapter.js";
+import { createSQLiteQueue } from "@muniter/queue/sqlite";
 
 export interface GeneralJobs {
     'process-image': { url: string; width: number; height: number };
     'generate-report': { type: string; period: string };
 }
 
-
-export const generalQueue = new DbQueue<GeneralJobs>(new SQLiteDatabaseAdapter());
+export const generalQueue = createSQLiteQueue<GeneralJobs>('queue.db');
 
 // Register job handlers for general queue
 generalQueue.onJob('process-image', async (payload) => {

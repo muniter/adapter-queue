@@ -1,4 +1,4 @@
-import { SQSClient } from '../../src/drivers/sqs.ts';
+import { SimplifiedSQSClient } from "../../src/drivers/sqs";
 
 interface StoredMessage {
   MessageId: string;
@@ -11,7 +11,7 @@ interface StoredMessage {
   visibilityTimeoutUntil?: Date;
 }
 
-export class TestSQSClient implements SQSClient {
+export class TestSQSClient implements SimplifiedSQSClient {
   private messages: Map<string, StoredMessage> = new Map();
   private nextMessageId = 1;
   private nextReceiptHandle = 1;
@@ -31,7 +31,7 @@ export class TestSQSClient implements SQSClient {
     MessageBody: string;
     DelaySeconds?: number;
     MessageAttributes?: Record<string, { StringValue: string; DataType: string }>;
-  }): Promise<{ MessageId: string }> {
+  }): Promise<{ MessageId: string, $metadata: any }> {
     const messageId = this.nextMessageId.toString();
     this.nextMessageId++;
 

@@ -1,8 +1,6 @@
 export { Queue } from './core/queue.ts';
 export { DbQueue } from './drivers/db.ts';
-export { SqsQueue } from './drivers/sqs.ts';
 export { FileQueue } from './drivers/file.ts';
-export { RedisQueue } from './drivers/redis.ts';
 export { Worker, runWorker } from './worker/worker.ts';
 
 export type { 
@@ -20,6 +18,4 @@ export type {
 } from './interfaces/database.ts';
 
 
-export type { SQSClient } from './drivers/sqs.ts';
-export type { RedisClient } from './drivers/redis.ts';
 export type { WorkerOptions } from './worker/worker.ts';

@@ -1,33 +1,35 @@
-import { initializeDatabase } from './database.js';
 import { emailQueue } from './email-queue.js';
 import { generalQueue } from './general-queue.js';
+import { emailQueue as redisEmailQueue } from './redis-queue.js';
 import { parseArgs } from 'util';
 
 async function push() {
-  console.log('Initializing database...');
-  await initializeDatabase();
+  console.log('Adding jobs to demonstrate different queue types...');
+  console.log('- SQLite queue (general tasks)');
+  console.log('- SQS queue (production email)'); 
+  console.log('- Redis queue (high-performance email)');
+  console.log('');
 
-  console.log('Adding some test jobs...');
-  // Add jobs using the new type-safe API
+  // SQS queue - using new createQueue(queueUrl) API
   const emailJobId1 = await emailQueue.addJob('welcome-email', {
     payload: {
       to: 'user@example.com',
       name: 'John Doe'
     }
   });
-  console.log(`Welcome email job added with ID: ${emailJobId1}`);
+  console.log(`[SQS] Welcome email job added with ID: ${emailJobId1}`);
 
-  const emailJobId2 = await emailQueue.addJob('notification', {
+  // Redis queue - using new createRedisQueue(url) API  
+  const emailJobId2 = await redisEmailQueue.addJob('notification', {
     payload: {
       to: 'admin@example.com',
       subject: 'Daily Report',
       body: 'Here is your daily report...'
     }
-    // Note: FileQueue doesn't support priority - would cause TypeScript error
-    // For demo purposes, we removed the priority option
   });
-  console.log(`Priority notification job added with ID: ${emailJobId2}`);
+  console.log(`[Redis] Notification job added with ID: ${emailJobId2}`);
 
+  // SQLite queue - using new createQueue('db.sqlite') API
   const imageJobId = await generalQueue.addJob('process-image', {
     payload: {
       url: 'https://example.com/image.jpg',
@@ -35,7 +37,7 @@ async function push() {
       height: 600
     }
   });
-  console.log(`Image job added with ID: ${imageJobId}`);
+  console.log(`[SQLite] Image job added with ID: ${imageJobId}`);
 
   await generalQueue.addJob('generate-report', {
     payload: {
@@ -44,6 +46,7 @@ async function push() {
     },
     delay: 2
   });
+  console.log(`[SQLite] Report job added with 2s delay`);
 }
 
 async function run() {
