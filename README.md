@@ -13,12 +13,12 @@ A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean
 ## Installation
 
 ```bash
-npm install @muniter/queue
+pnpm add @muniter/queue
 ```
 
 For SQS support:
 ```bash
-npm install @muniter/queue @aws-sdk/client-sqs
+pnpm add @muniter/queue @aws-sdk/client-sqs
 ```
 
 ## Quick Start
@@ -289,19 +289,19 @@ export class YourDatabaseAdapter implements DatabaseAdapter {
 
 ```bash
 # Database driver (requires your adapter)
-npm run queue:worker -- --driver db
+pnpm run queue:worker -- --driver db
 
 # SQS driver  
-npm run queue:worker -- --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
+pnpm run queue:worker -- --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
 
 # File driver
-npm run queue:worker -- --driver file --path ./queue-data
+pnpm run queue:worker -- --driver file --path ./queue-data
 
 # Run once and exit
-npm run queue:worker -- --no-repeat
+pnpm run queue:worker -- --no-repeat
 
 # Custom polling timeout
-npm run queue:worker -- --timeout 10
+pnpm run queue:worker -- --timeout 10
 ```
 
 ## API Reference
@@ -337,17 +337,17 @@ interface JobMap {
 Run the test suite:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Build the project:
 ```bash
-npm run build
+pnpm run build
 ```
 
 Type checking:
 ```bash
-npm run lint
+pnpm run lint
 ```
 
 ## Architecture

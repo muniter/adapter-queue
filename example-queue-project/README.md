@@ -25,12 +25,12 @@ This example shows the **separation of concerns** pattern recommended for produc
 
 1. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 2. Build the project:
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## Usage
@@ -40,7 +40,7 @@ npm run build
 In one terminal, start the background workers that will process jobs:
 
 ```bash
-npm run process-jobs
+pnpm run process-jobs
 ```
 
 This will:
@@ -54,7 +54,7 @@ This will:
 In another terminal, add jobs to be processed:
 
 ```bash
-npm run add-job
+pnpm run add-job
 ```
 
 This will add various types of jobs:
@@ -98,8 +98,8 @@ In a real production environment, you would:
 
 ## Try It
 
-1. Start workers: `npm run process-jobs`
-2. In another terminal: `npm run add-job`
+1. Start workers: `pnpm run process-jobs`
+2. In another terminal: `pnpm run add-job`
 3. Watch the jobs get processed in real-time!
 4. Try adding jobs multiple times to see concurrent processing
 5. Stop workers with Ctrl+C

@@ -20,7 +20,7 @@ interface RedisOperations {
   exists(...keys: string[]): Promise<number>;
 }
 
-// Type for the redis npm package client (simplified - we'll use duck typing)
+// Type for the redis package client (simplified - we'll use duck typing)
 export interface RedisClient {
   [key: string]: any; // Allow any redis client that has the methods we need
 }

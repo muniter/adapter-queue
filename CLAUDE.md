@@ -9,14 +9,14 @@ This is `@muniter/queue`, a TypeScript queue system inspired by Yii2-Queue archi
 ## Essential Commands
 
 ### Development Commands
-- `npm run build` - Build TypeScript to JavaScript
-- `npm run dev` - Watch mode for development (TypeScript compiler)
-- `npm run lint` - Type checking with TypeScript compiler
-- `npm test` - Run all tests with Vitest
+- `pnpm run build` - Build TypeScript to JavaScript
+- `pnpm run dev` - Watch mode for development (TypeScript compiler)
+- `pnpm run lint` - Type checking with TypeScript compiler
+- `pnpm test` - Run all tests with Vitest
 
 ### Worker Commands
-- `npm run queue:worker` - Start a queue worker
-- `npm run queue:worker:isolate` - Start worker with job isolation
+- `pnpm run queue:worker` - Start a queue worker
+- `pnpm run queue:worker:isolate` - Start worker with job isolation
 
 ### CLI Worker Options
 The CLI worker supports these arguments:
