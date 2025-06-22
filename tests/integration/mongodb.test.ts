@@ -67,8 +67,8 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       // Add a job to trigger index creation
       await queue.addJob('simple-job', { payload: { data: 'test' } });
       
-      // Wait a bit for async index creation to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for indexes to be created
+      await (queue as any).adapter.ensureIndexes();
       
       // Check that indexes exist
       const db = client.db(testDatabase);

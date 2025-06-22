@@ -21,8 +21,10 @@ export interface MongoConfig {
 }
 
 export class MongoDatabaseAdapter implements DatabaseAdapter {
+  private indexesInitialized: Promise<void>;
+
   constructor(private col: MongoCollection) {
-    this.initializeIndexes();
+    this.indexesInitialized = this.initializeIndexes();
   }
 
   private async initializeIndexes(): Promise<void> {
@@ -46,6 +48,10 @@ export class MongoDatabaseAdapter implements DatabaseAdapter {
       // Indexes might already exist or collection might not support them
       console.warn('MongoDB index creation warning:', error);
     }
+  }
+
+  async ensureIndexes(): Promise<void> {
+    await this.indexesInitialized;
   }
 
   async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {

@@ -10,6 +10,10 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
     super(options);
   }
 
+  get adapter(): DatabaseAdapter {
+    return this.db;
+  }
+
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
     return await this.db.insertJob(Buffer.from(payload), meta);
   }

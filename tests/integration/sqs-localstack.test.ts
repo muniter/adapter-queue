@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { SQSClient, CreateQueueCommand, DeleteQueueCommand, PurgeQueueCommand } from '@aws-sdk/client-sqs';
 import { SqsQueue } from '../../src/drivers/sqs.ts';
-import { SQSClientV3Adapter } from '../utils/sqs-v3-adapter.ts';
 
 interface TestJobs {
   'process-data': { id: number; data: string };
@@ -73,9 +72,8 @@ describe('SQS Integration Tests (LocalStack)', () => {
       // Queue might be empty, ignore
     }
     
-    // Create fresh queue instance using the v3 adapter
-    const adapter = new SQSClientV3Adapter(sqsClient);
-    queue = new SqsQueue<TestJobs>(adapter, queueUrl);
+    // Create fresh queue instance using SQSClient directly
+    queue = new SqsQueue<TestJobs>(sqsClient, queueUrl);
   });
 
   describe('Real SQS Operations', () => {
@@ -105,7 +103,7 @@ describe('SQS Integration Tests (LocalStack)', () => {
       // Register job handler
       queue.onJob('process-data', async (payload) => {
         processedJobs.push(payload);
-        return `Processed: ${payload.data}`;
+        // Just process without returning string to match void return type
       });
 
       // Add job

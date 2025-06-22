@@ -1,4 +1,14 @@
-import type { SQS } from "@aws-sdk/client-sqs";
+import {
+  SQSClient,
+  SendMessageCommand,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+  ChangeMessageVisibilityCommand,
+  type SendMessageCommandInput,
+  type ReceiveMessageCommandInput,
+  type DeleteMessageCommandInput,
+  type ChangeMessageVisibilityCommandInput,
+} from "@aws-sdk/client-sqs";
 import { Queue } from "../core/queue.ts";
 import type {
   JobStatus,
@@ -7,17 +17,12 @@ import type {
   SqsJobRequest,
 } from "../interfaces/job.ts";
 
-export type SimplifiedSQSClient = Pick<
-  SQS,
-  "sendMessage" | "receiveMessage" | "changeMessageVisibility" | "deleteMessage"
->;
-
 export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   TJobMap,
   SqsJobRequest<any>
 > {
   constructor(
-    private client: SimplifiedSQSClient,
+    private client: SQSClient,
     private queueUrl: string,
     options: { ttrDefault?: number } = {}
   ) {
@@ -43,12 +48,14 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       };
     }
 
-    const result = await this.client.sendMessage({
+    const command = new SendMessageCommand({
       QueueUrl: this.queueUrl,
       MessageBody: payload,
       DelaySeconds: meta.delay || 0,
       MessageAttributes: messageAttributes,
     });
+    
+    const result = await this.client.send(command);
 
     if (!result.MessageId) {
       throw new Error("Failed to send message - no MessageId returned");
@@ -57,12 +64,14 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   }
 
   protected async reserve(timeout: number): Promise<QueueMessage | null> {
-    const result = await this.client.receiveMessage({
+    const command = new ReceiveMessageCommand({
       QueueUrl: this.queueUrl,
       MaxNumberOfMessages: 1,
       WaitTimeSeconds: timeout,
       MessageAttributeNames: ["All"],
     });
+    
+    const result = await this.client.send(command);
 
     if (!result.Messages || result.Messages.length === 0) {
       return null;
@@ -88,11 +97,13 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     }
 
     if (meta.ttr) {
-      await this.client.changeMessageVisibility({
+      const visibilityCommand = new ChangeMessageVisibilityCommand({
         QueueUrl: this.queueUrl,
         ReceiptHandle: message.ReceiptHandle,
         VisibilityTimeout: meta.ttr,
       });
+      
+      await this.client.send(visibilityCommand);
     }
 
     return {
@@ -112,10 +123,12 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       );
     }
 
-    await this.client.deleteMessage({
+    const deleteCommand = new DeleteMessageCommand({
       QueueUrl: this.queueUrl,
       ReceiptHandle: message.meta.receiptHandle,
     });
+    
+    await this.client.send(deleteCommand);
   }
 
   async status(id: string): Promise<JobStatus> {

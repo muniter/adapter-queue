@@ -13,7 +13,7 @@ describe('SqsQueue', () => {
 
   beforeEach(() => {
     sqsClient = new TestSQSClient();
-    queue = new SqsQueue<TestJobs>(sqsClient, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue');
+    queue = new SqsQueue<TestJobs>(sqsClient as any, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue');
   });
 
   describe('addJob and reserve cycle', () => {
