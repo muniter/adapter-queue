@@ -110,12 +110,14 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, SqsJ
   }
 
   protected async release(message: QueueMessage): Promise<void> {
-    if (message.meta.receiptHandle) {
-      await this.client.deleteMessage({
-        QueueUrl: this.queueUrl,
-        ReceiptHandle: message.meta.receiptHandle
-      });
+    if (!message.meta.receiptHandle) {
+      throw new Error('Cannot release SQS message: receiptHandle is missing from metadata');
     }
+    
+    await this.client.deleteMessage({
+      QueueUrl: this.queueUrl,
+      ReceiptHandle: message.meta.receiptHandle
+    });
   }
 
   async status(id: string): Promise<JobStatus> {
