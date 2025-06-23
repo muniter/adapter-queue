@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest } from '../interfaces/job.ts';
+import type { QueuePlugin, QueueOptions } from '../interfaces/plugin.ts';
 
 /**
  * Abstract queue class providing event-based job processing.
@@ -29,16 +30,23 @@ import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions,
  */
 export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends BaseJobRequest<any> = BaseJobRequest<any>> extends EventEmitter {
   protected ttrDefault = 300;
+  protected plugins: QueuePlugin[];
+  protected pluginDisposers: Array<() => Promise<void>> = [];
+  public readonly name?: string;
 
   /**
    * Creates a new Queue instance.
    * 
    * @param options - Configuration options
    * @param options.ttrDefault - Default time-to-run for jobs in seconds (default: 300)
+   * @param options.name - Optional name for the queue
+   * @param options.plugins - Array of plugins to use with this queue
    */
-  constructor(options: { ttrDefault?: number } = {}) {
+  constructor(options: QueueOptions = {}) {
     super();
     if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
+    this.name = options.name;
+    this.plugins = options.plugins || [];
   }
 
 
@@ -147,22 +155,111 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * ```
    */
   async run(repeat: boolean = false, timeout: number = 0): Promise<void> {
-    const canContinue = () => true;
+    const disposers = [...this.pluginDisposers];
 
-    while (canContinue()) {
-      const message = await this.reserve(timeout);
-      
-      if (!message) {
-        if (!repeat) break;
-        if (timeout > 0) {
-          await this.sleep(timeout * 1000);
+    // 1. Initialize plugins if not already initialized
+    if (this.pluginDisposers.length === 0) {
+      for (const plugin of this.plugins) {
+        if (plugin.init) {
+          const dispose = await plugin.init({ queue: this as any, queueName: this.name });
+          if (dispose) {
+            this.pluginDisposers.push(dispose);
+            disposers.push(dispose);
+          }
         }
-        continue;
       }
+    }
 
-      const success = await this.handleMessage(message);
-      if (success) {
-        await this.release(message);
+    try {
+      // 2. Main processing loop (enhancing existing loop)
+      let stopped = false;
+      
+      while (!stopped) {
+        // Check if any plugin wants to stop
+        try {
+          for (const plugin of this.plugins) {
+            if (plugin.beforePoll) {
+              const result = await plugin.beforePoll();
+              if (result === 'stop') {
+                stopped = true;
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Plugin beforePoll error:', error);
+          // Continue polling despite plugin error
+        }
+        if (stopped) break;
+
+        const message = await this.reserve(timeout);
+        if (!message) {
+          if (!repeat) break;
+          if (timeout > 0) {
+            await this.sleep(timeout * 1000);
+          }
+          continue;
+        }
+
+        // 3. Pre-execution hooks
+        try {
+          for (const plugin of this.plugins) {
+            if (plugin.beforeJob) {
+              await plugin.beforeJob(message);
+            }
+          }
+        } catch (error) {
+          console.error('Plugin beforeJob error:', error);
+          // Continue processing despite plugin error
+        }
+
+        // 4. Execute job (with plugin hooks)
+        let success = false;
+        let jobError: unknown;
+        
+        // We need to track errors for plugins, but handleMessage catches them internally
+        // So we'll set up an event listener to capture the error
+        let capturedError: unknown;
+        const errorListener = (event: QueueEvent) => {
+          if (event.type === 'afterError' && event.id === message.id) {
+            capturedError = event.error;
+          }
+        };
+        
+        this.once('afterError', errorListener);
+        
+        try {
+          success = await this.handleMessage(message);
+          jobError = capturedError; // Will be undefined if no error
+        } catch (error) {
+          // This shouldn't happen since handleMessage catches errors
+          jobError = error;
+          success = false;
+        } finally {
+          this.removeListener('afterError', errorListener);
+        }
+
+        // 5. Post-execution hooks
+        try {
+          for (const plugin of this.plugins) {
+            if (plugin.afterJob) {
+              await plugin.afterJob(message, jobError);
+            }
+          }
+        } catch (error) {
+          console.error('Plugin afterJob error:', error);
+          // Don't let plugin errors affect job completion
+        }
+
+        // Complete the job if successful
+        if (success) {
+          await this.release(message);
+        }
+      }
+    } finally {
+      // 6. Cleanup only if we initialized in this run
+      for (const dispose of disposers.reverse()) {
+        await dispose();
       }
     }
   }
@@ -176,6 +273,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    */
   protected async handleMessage(message: QueueMessage): Promise<boolean> {
     try {
+      // Parse the job data (this may have been modified by plugins)
       const jobData: JobData = JSON.parse(message.payload);
       const { name, payload } = jobData;
 

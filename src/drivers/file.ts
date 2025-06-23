@@ -3,6 +3,7 @@ import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.js';
 import type { QueueMessage, JobMeta, JobStatus, FileJobRequest } from '../interfaces/job.js';
+import type { QueueOptions } from '../interfaces/plugin.js';
 
 interface IndexData {
   lastId: number;
@@ -17,7 +18,7 @@ interface ReservedInfo {
   attempt: number;
 }
 
-interface FileQueueOptions {
+interface FileQueueOptions extends QueueOptions {
   path: string;
   dirMode?: number;
   fileMode?: number;
@@ -30,7 +31,7 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
   private indexPath: string;
 
   constructor(options: FileQueueOptions) {
-    super();
+    super(options);
     this.path = path.resolve(options.path);
     this.dirMode = options.dirMode ?? 0o755;
     this.fileMode = options.fileMode;

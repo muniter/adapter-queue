@@ -16,6 +16,7 @@ import type {
   QueueMessage,
   SqsJobRequest,
 } from "../interfaces/job.ts";
+import type { QueueOptions } from "../interfaces/plugin.ts";
 
 export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   TJobMap,
@@ -24,7 +25,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   constructor(
     private client: SQSClient,
     private queueUrl: string,
-    options: { ttrDefault?: number } = {}
+    options: QueueOptions = {}
   ) {
     super(options);
   }
