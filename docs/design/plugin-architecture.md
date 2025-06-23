@@ -41,25 +41,26 @@ Building these features directly into the core library would:
 ### Plugin Interface
 
 ```typescript
-export interface WorkerPlugin {
+export interface QueuePlugin {
   /**
-   * Called once when the worker starts.
+   * Called once when the queue starts processing.
    * Return a cleanup function that runs on shutdown.
    */
   init?(ctx: { queue: Queue; queueName?: string }): Promise<(() => Promise<void>) | void>;
 
   /**
    * Called before each poll/reserve attempt.
-   * Return 'stop' to gracefully shut down the worker.
+   * Return 'stop' to gracefully shut down processing.
    */
   beforePoll?(): Promise<'continue' | 'stop' | void>;
 
   /**
    * Called after a job is reserved but before execution.
-   * Return 'stop' to reject the job and stop the worker.
-   * Plugins can mutate the job object if needed.
+   * Use this hook to prepare for job processing (e.g., acquire resources,
+   * extend timeouts, enrich job data). Once a job is reserved, it will
+   * be processed - this hook cannot reject jobs.
    */
-  beforeJob?(job: QueueMessage): Promise<'continue' | 'stop' | void>;
+  beforeJob?(job: QueueMessage): Promise<void>;
 
   /**
    * Called after job execution (success or failure).
@@ -69,91 +70,116 @@ export interface WorkerPlugin {
 }
 ```
 
-### Worker Integration
+### Queue Integration
 
-The worker loop integrates plugins at key points:
+Plugins are configured when creating the queue instance, becoming part of its configuration:
 
 ```typescript
-export async function runWorker<T>(
-  queue: Queue<T>,
-  options: WorkerOptions & { plugins?: WorkerPlugin[] }
-) {
-  const { plugins = [], ...opts } = options;
-  const disposers: Array<() => Promise<void>> = [];
+// Extended Queue constructor options
+interface QueueOptions {
+  ttrDefault?: number;
+  plugins?: QueuePlugin[];
+}
 
-  // 1. Initialize plugins
-  for (const plugin of plugins) {
-    if (plugin.init) {
-      const dispose = await plugin.init({ queue, queueName: queue.name });
-      if (dispose) disposers.push(dispose);
-    }
+export abstract class Queue<TJobMap> {
+  private plugins: QueuePlugin[];
+  private pluginDisposers: Array<() => Promise<void>> = [];
+
+  constructor(options: QueueOptions = {}) {
+    super();
+    this.plugins = options.plugins || [];
+    if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
   }
 
-  try {
-    // 2. Main processing loop
-    while (!stopped) {
-      // Check if any plugin wants to stop
-      for (const plugin of plugins) {
-        if (plugin.beforePoll) {
-          const result = await plugin.beforePoll();
-          if (result === 'stop') {
-            stopped = true;
-            break;
-          }
-        }
-      }
-      if (stopped) break;
+  async run(repeat: boolean = false, timeout: number = 0): Promise<void> {
+    const disposers = [...this.pluginDisposers];
 
-      const message = await queue.reserve(opts.timeout);
-      if (!message) continue;
-
-      // 3. Pre-execution hooks
-      let shouldProcess = true;
-      for (const plugin of plugins) {
-        if (plugin.beforeJob) {
-          const result = await plugin.beforeJob(message);
-          if (result === 'stop') {
-            shouldProcess = false;
-            stopped = true;
-            break;
-          }
-        }
-      }
-
-      if (!shouldProcess) {
-        await queue.release(message); // Return job to queue
-        break;
-      }
-
-      // 4. Execute job
-      try {
-        await queue.handleMessage(message);
-        
-        // 5. Post-execution hooks (success)
-        for (const plugin of plugins) {
-          if (plugin.afterJob) {
-            await plugin.afterJob(message);
-          }
-        }
-      } catch (error) {
-        // 6. Post-execution hooks (failure)
-        for (const plugin of plugins) {
-          if (plugin.afterJob) {
-            await plugin.afterJob(message, error);
+    // 1. Initialize plugins if not already initialized
+    if (this.pluginDisposers.length === 0) {
+      for (const plugin of this.plugins) {
+        if (plugin.init) {
+          const dispose = await plugin.init({ queue: this, queueName: this.name });
+          if (dispose) {
+            this.pluginDisposers.push(dispose);
+            disposers.push(dispose);
           }
         }
       }
     }
-  } finally {
-    // 7. Cleanup
-    for (const dispose of disposers.reverse()) {
-      await dispose();
+
+    try {
+      // 2. Main processing loop (enhancing existing loop)
+      let stopped = false;
+      
+      while (!stopped) {
+        // Check if any plugin wants to stop
+        for (const plugin of this.plugins) {
+          if (plugin.beforePoll) {
+            const result = await plugin.beforePoll();
+            if (result === 'stop') {
+              stopped = true;
+              break;
+            }
+          }
+        }
+        if (stopped) break;
+
+        const message = await this.reserve(timeout);
+        if (!message) {
+          if (!repeat) break;
+          if (timeout > 0) {
+            await this.sleep(timeout * 1000);
+          }
+          continue;
+        }
+
+        // 3. Pre-execution hooks
+        for (const plugin of this.plugins) {
+          if (plugin.beforeJob) {
+            await plugin.beforeJob(message);
+          }
+        }
+
+        // 4. Execute job (with plugin hooks)
+        let success = false;
+        let jobError: unknown;
+        
+        try {
+          success = await this.handleMessage(message);
+        } catch (error) {
+          jobError = error;
+        }
+
+        // 5. Post-execution hooks
+        for (const plugin of this.plugins) {
+          if (plugin.afterJob) {
+            await plugin.afterJob(message, jobError);
+          }
+        }
+
+        // Complete the job if successful
+        if (success) {
+          await this.release(message);
+        }
+      }
+    } finally {
+      // 6. Cleanup only if we initialized in this run
+      for (const dispose of disposers.reverse()) {
+        await dispose();
+      }
     }
   }
 }
 ```
 
 ### Design Benefits
+
+#### Direct Queue Integration
+By integrating plugins directly into the Queue class at construction time:
+- **Configuration-Time Setup**: Plugins become part of the queue's configuration
+- **Consistent Behavior**: All runs of the queue will have the same plugins
+- **Simpler API**: `queue.run()` stays simple without plugin parameters
+- **Clear Mental Model**: Plugins are queue capabilities, not runtime options
 
 #### Full Job Object Access
 Passing the complete `QueueMessage` object to plugins provides:
@@ -162,12 +188,16 @@ Passing the complete `QueueMessage` object to plugins provides:
 - **Job Transformation**: Advanced plugins can modify job metadata or payload
 - **Performance Tracking**: Easy access to timestamps and TTR values
 
-#### Explicit Return Values
-Using string literals (`'continue'` | `'stop'`) instead of booleans:
-- **Self-Documenting**: Code clearly expresses intent
-- **Type Safety**: TypeScript prevents typos and invalid values
-- **Future Extensibility**: Easy to add new return values like `'retry'` or `'defer'`
-- **Readable**: `return 'stop'` is clearer than `return false`
+#### Clear Hook Responsibilities
+Each plugin hook has a specific purpose:
+- **`beforePoll`**: Control whether to continue polling for jobs (environment-level decisions)
+- **`beforeJob`**: Prepare for job execution using job details (resource acquisition, logging)
+- **`afterJob`**: Clean up after job completion (resource release, metrics)
+
+#### Hook Design Rationale
+- **`beforePoll` can stop**: Controls job acquisition at the queue level
+- **`beforeJob` is void**: Once reserved, jobs must be processed (no "unreserve" semantics)
+- **Explicit return values**: `'continue'` | `'stop'` is clearer than boolean values
 
 ### Error Handling
 
@@ -213,7 +243,7 @@ Key behaviors:
 ```typescript
 // plugins/ecsTaskProtection.ts
 import axios from 'axios';
-import type { WorkerPlugin } from '@muniter/queue';
+import type { QueuePlugin } from '@muniter/queue';
 
 class ProtectionManager {
   private activeJobs = 0;
@@ -222,21 +252,26 @@ class ProtectionManager {
   private renewTimer: NodeJS.Timeout | null = null;
   private mutex = new Mutex();
   
-  async onJobStart(ttrSeconds: number): Promise<'continue' | 'stop'> {
-    return this.mutex.lock(async () => {
-      if (this.draining) return 'stop';
-      
-      if (this.activeJobs === 0) {
+  async onJobStart(ttrSeconds: number): Promise<void> {
+    await this.mutex.lock(async () => {
+      if (this.activeJobs === 0 && !this.draining) {
         const acquired = await this.acquire(ttrSeconds);
         if (!acquired) {
           this.draining = true;
-          return 'stop'; // Signal worker to stop
+          return; // Will be handled by beforePoll
         }
       }
       
       this.activeJobs++;
-      return 'continue';
     });
+  }
+  
+  isDraining(): boolean {
+    return this.draining;
+  }
+  
+  markDraining(): void {
+    this.draining = true;
   }
   
   async onJobEnd(): Promise<void> {
@@ -290,17 +325,23 @@ class ProtectionManager {
 // Singleton instance shared across all workers in the process
 const manager = new ProtectionManager();
 
-export function ecsTaskProtection(): WorkerPlugin {
+export function ecsTaskProtection(): QueuePlugin {
   return {
+    async beforePoll() {
+      // Check if ECS is draining and stop polling for new jobs
+      if (manager.isDraining()) {
+        return 'stop';
+      }
+      return 'continue';
+    },
+
     async beforeJob(job) {
       // Extract TTR from job metadata, using queue default if not specified
       const ttr = job.meta.ttr || 300; // Default 5 minutes
-      const result = await manager.onJobStart(ttr);
+      await manager.onJobStart(ttr);
       
       // Log job details for debugging
       console.log(`[ECS Protection] Job ${job.id} starting (TTR: ${ttr}s)`);
-      
-      return result;
     },
     
     async afterJob(job, error) {
@@ -343,18 +384,18 @@ export function ecsTaskProtection(): WorkerPlugin {
 import { FileQueue } from '@muniter/queue';
 import { ecsTaskProtection } from '@muniter/queue/plugins';
 
-const queue = new FileQueue<MyJobs>({ path: './queue' });
+const queue = new FileQueue<MyJobs>({ 
+  path: './queue',
+  plugins: [ecsTaskProtection()]
+});
 
 // Register job handlers
 queue.onJob('send-email', async (payload) => {
   await emailService.send(payload);
 });
 
-// Run with ECS protection
-await runWorker(queue, {
-  plugins: [ecsTaskProtection()],
-  timeout: 3,
-});
+// Simple run call - plugins are already configured
+await queue.run(true, 3);
 ```
 
 ### Multiple Queues
@@ -363,30 +404,103 @@ await runWorker(queue, {
 // Single protection manager handles both queues
 const protection = ecsTaskProtection();
 
+const emailQueue = new SqsQueue<EmailJobs>(sqsClient, queueUrl, {
+  plugins: [protection]
+});
+
+const imageQueue = new FileQueue<ImageJobs>({
+  path: './image-queue',
+  plugins: [protection]
+});
+
 await Promise.all([
-  runWorker(emailQueue, { plugins: [protection] }),
-  runWorker(imageQueue, { plugins: [protection] }),
+  emailQueue.run(true),
+  imageQueue.run(true),
 ]);
 ```
 
 ### Composing Plugins
 
 ```typescript
-await runWorker(queue, {
+const queue = new DbQueue(databaseAdapter, {
+  plugins: [
+    // ECS task protection for safe scaling
+    ecsTaskProtection(),
+    
+    // Metrics collection for monitoring
+    metricsPlugin({ 
+      statsd: 'localhost:8125',
+      prefix: 'email_queue'
+    }),
+    
+    // Distributed tracing for observability
+    tracingPlugin({ 
+      serviceName: 'email-worker',
+      serviceVersion: '2.1.0'
+    }),
+    
+    // Circuit breaker for resilience
+    circuitBreakerPlugin({
+      failureThreshold: 10,
+      resetTimeoutMs: 120000
+    }),
+    
+    // Job enrichment for context
+    enrichmentPlugin()
+  ]
+});
+
+await queue.run(true, 3);
+```
+
+### Real-World Production Setup
+
+```typescript
+// Production email queue with full observability
+const emailQueue = new SqsQueue<EmailJobs>(sqsClient, process.env.EMAIL_QUEUE_URL!, {
+  ttrDefault: 300,
   plugins: [
     ecsTaskProtection(),
-    metricsPlugin({ statsd: 'localhost:8125' }),
-    tracingPlugin({ serviceName: 'job-worker' }),
-  ],
+    metricsPlugin({ 
+      statsd: process.env.STATSD_HOST!,
+      prefix: 'email_queue'
+    }),
+    tracingPlugin({ 
+      serviceName: 'email-service',
+      serviceVersion: process.env.SERVICE_VERSION!
+    }),
+    circuitBreakerPlugin({ failureThreshold: 5 })
+  ]
 });
+
+// Background processing queue with different settings
+const backgroundQueue = new DbQueue<BackgroundJobs>(databaseAdapter, {
+  ttrDefault: 1800, // 30 minutes for long-running jobs
+  plugins: [
+    ecsTaskProtection(),
+    metricsPlugin({ 
+      statsd: process.env.STATSD_HOST!,
+      prefix: 'background_queue'
+    }),
+    // No circuit breaker - background jobs can be more tolerant
+    enrichmentPlugin()
+  ]
+});
+
+// Start both queues concurrently
+await Promise.all([
+  emailQueue.run(true, 1),      // Fast polling for time-sensitive emails
+  backgroundQueue.run(true, 5)  // Slower polling for background work
+]);
 ```
 
 ### Custom Plugin
 
 ```typescript
-function customPlugin(): WorkerPlugin {
+function customPlugin(): QueuePlugin {
   let jobCount = 0;
   const jobTimes = new Map<string, number>();
+  const maxJobs = 1000;
   
   return {
     async init({ queue, queueName }) {
@@ -394,6 +508,15 @@ function customPlugin(): WorkerPlugin {
       return async () => {
         console.log(`Processed ${jobCount} jobs`);
       };
+    },
+    
+    async beforePoll() {
+      // Stop processing if we've hit the job limit
+      if (jobCount >= maxJobs) {
+        console.log(`Job limit of ${maxJobs} reached, stopping worker`);
+        return 'stop';
+      }
+      return 'continue';
     },
     
     async beforeJob(job) {
@@ -405,13 +528,9 @@ function customPlugin(): WorkerPlugin {
       jobTimes.set(job.id, Date.now());
       jobCount++;
       
-      // Example: Stop processing if we've hit a limit
-      if (jobCount > 1000) {
-        console.log('Job limit reached, stopping worker');
-        return 'stop';
-      }
-      
-      return 'continue';
+      // Add processing metadata to the job
+      job.meta.processedAt = new Date();
+      job.meta.workerHost = process.env.HOSTNAME;
     },
     
     async afterJob(job, error) {
@@ -473,25 +592,201 @@ class Mutex {
 
 #### Job Enrichment Plugin
 ```typescript
-function enrichmentPlugin(): WorkerPlugin {
+function enrichmentPlugin(): QueuePlugin {
   return {
     async beforeJob(job) {
       // Add processing metadata
       job.meta.processedAt = new Date();
       job.meta.workerHost = process.env.HOSTNAME;
       
-      // Parse and validate payload
+      // Parse and enrich payload
       const data = JSON.parse(job.payload);
-      if (!data.userId) {
-        console.error('Job missing userId, rejecting');
+      data.environment = process.env.NODE_ENV;
+      data.processedBy = 'queue-worker-v1.2';
+      job.payload = JSON.stringify(data);
+      
+      // Add trace ID for correlation
+      job.meta.traceId = crypto.randomUUID();
+    }
+  };
+}
+```
+
+#### Metrics Plugin
+```typescript
+interface MetricsOptions {
+  statsd?: string;
+  prefix?: string;
+}
+
+function metricsPlugin(options: MetricsOptions = {}): QueuePlugin {
+  const { statsd = 'localhost:8125', prefix = 'queue' } = options;
+  const client = new StatsD({ host: statsd.split(':')[0], port: parseInt(statsd.split(':')[1]) });
+  
+  const jobStartTimes = new Map<string, number>();
+  let activeJobs = 0;
+  
+  return {
+    async init({ queue }) {
+      console.log(`[Metrics] Initializing for queue: ${queue.name}`);
+      
+      // Report active jobs periodically
+      const interval = setInterval(() => {
+        client.gauge(`${prefix}.active_jobs`, activeJobs);
+      }, 10000);
+      
+      return async () => {
+        clearInterval(interval);
+        client.close();
+      };
+    },
+    
+    async beforeJob(job) {
+      const jobData = JSON.parse(job.payload);
+      
+      // Track job start
+      jobStartTimes.set(job.id, Date.now());
+      activeJobs++;
+      
+      // Increment job counter by type
+      client.increment(`${prefix}.jobs.started`, 1, [`job_type:${jobData.name}`]);
+      client.gauge(`${prefix}.active_jobs`, activeJobs);
+    },
+    
+    async afterJob(job, error) {
+      const jobData = JSON.parse(job.payload);
+      const startTime = jobStartTimes.get(job.id);
+      const duration = startTime ? Date.now() - startTime : 0;
+      
+      jobStartTimes.delete(job.id);
+      activeJobs = Math.max(0, activeJobs - 1);
+      
+      // Record completion metrics
+      if (error) {
+        client.increment(`${prefix}.jobs.failed`, 1, [`job_type:${jobData.name}`]);
+      } else {
+        client.increment(`${prefix}.jobs.completed`, 1, [`job_type:${jobData.name}`]);
+        client.histogram(`${prefix}.jobs.duration`, duration, [`job_type:${jobData.name}`]);
+      }
+      
+      client.gauge(`${prefix}.active_jobs`, activeJobs);
+    }
+  };
+}
+```
+
+#### OpenTelemetry Tracing Plugin
+```typescript
+import { trace, context, SpanStatusCode } from '@opentelemetry/api';
+
+interface TracingOptions {
+  serviceName?: string;
+  serviceVersion?: string;
+}
+
+function tracingPlugin(options: TracingOptions = {}): QueuePlugin {
+  const { serviceName = 'queue-worker', serviceVersion = '1.0.0' } = options;
+  const tracer = trace.getTracer(serviceName, serviceVersion);
+  
+  const activeSpans = new Map<string, any>();
+  
+  return {
+    async beforeJob(job) {
+      const jobData = JSON.parse(job.payload);
+      
+      // Start a new span for this job
+      const span = tracer.startSpan(`job.${jobData.name}`, {
+        attributes: {
+          'job.id': job.id,
+          'job.name': jobData.name,
+          'job.ttr': job.meta.ttr || 300,
+          'queue.name': 'queue-worker', // Could be passed from init
+        }
+      });
+      
+      // Store span for later use
+      activeSpans.set(job.id, span);
+      
+      // Add trace context to job for downstream services
+      const traceContext = trace.setSpan(context.active(), span);
+      job.meta.traceContext = JSON.stringify(traceContext);
+    },
+    
+    async afterJob(job, error) {
+      const span = activeSpans.get(job.id);
+      if (!span) return;
+      
+      // Set span status based on job result
+      if (error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: error.message
+        });
+        span.recordException(error);
+      } else {
+        span.setStatus({ code: SpanStatusCode.OK });
+      }
+      
+      // End span and clean up
+      span.end();
+      activeSpans.delete(job.id);
+    }
+  };
+}
+```
+
+#### Circuit Breaker Plugin
+```typescript
+interface CircuitBreakerOptions {
+  failureThreshold?: number;
+  resetTimeoutMs?: number;
+  monitorWindowMs?: number;
+}
+
+function circuitBreakerPlugin(options: CircuitBreakerOptions = {}): QueuePlugin {
+  const { 
+    failureThreshold = 5, 
+    resetTimeoutMs = 60000,
+    monitorWindowMs = 30000 
+  } = options;
+  
+  let failures = 0;
+  let lastFailureTime = 0;
+  let isOpen = false;
+  
+  return {
+    async beforePoll() {
+      // Check if circuit breaker should reset
+      if (isOpen && Date.now() - lastFailureTime > resetTimeoutMs) {
+        console.log('[CircuitBreaker] Attempting to close circuit');
+        isOpen = false;
+        failures = 0;
+      }
+      
+      // Stop polling if circuit is open
+      if (isOpen) {
+        console.log('[CircuitBreaker] Circuit is open, stopping job processing');
         return 'stop';
       }
       
-      // Enrich with additional context
-      data.environment = process.env.NODE_ENV;
-      job.payload = JSON.stringify(data);
-      
       return 'continue';
+    },
+    
+    async afterJob(job, error) {
+      if (error) {
+        failures++;
+        lastFailureTime = Date.now();
+        
+        if (failures >= failureThreshold) {
+          isOpen = true;
+          console.error(`[CircuitBreaker] Circuit opened after ${failures} failures`);
+        }
+      } else {
+        // Reset failure count on success (in closed state)
+        if (!isOpen) {
+          failures = Math.max(0, failures - 1);
+        }
+      }
     }
   };
 }
@@ -510,9 +805,39 @@ Potential plugins that follow this pattern:
 
 ## Migration Path
 
-1. **v1.0**: Core library without plugin support (current)
-2. **v1.1**: Add plugin interface, ship ECS plugin
-3. **v1.2**: Community plugins emerge
-4. **v2.0**: Refined plugin API based on feedback
+### Current State
+The Queue class already has:
+- A `run()` method with the processing loop
+- Event emitters for job lifecycle
+- All the infrastructure needed for plugins
+
+### Implementation Steps
+
+1. **Update Queue constructor**: 
+   - Extend options interface to include `plugins?: QueuePlugin[]`
+   - Store plugins as instance properties
+
+2. **Add plugin hooks to run() method**: 
+   - Minimal changes to existing loop
+   - Plugins are optional, zero overhead when not used
+
+3. **Ship ECS plugin**: 
+   - As a separate export `@muniter/queue/plugins`
+   - No dependencies added to core
+
+### Backward Compatibility
+
+```typescript
+// Existing queues work unchanged
+const queue = new FileQueue<MyJobs>({ path: './queue' });
+await queue.run(true, 3);
+
+// New queues with plugins
+const protectedQueue = new FileQueue<MyJobs>({ 
+  path: './queue',
+  plugins: [ecsTaskProtection()]
+});
+await protectedQueue.run(true, 3);
+```
 
 The plugin API is designed to be stable from day one, with room for additive changes without breaking existing plugins.

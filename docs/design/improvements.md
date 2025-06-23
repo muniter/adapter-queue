@@ -6,6 +6,8 @@ After implementing a real-world example with SQLite, several critical issues hav
 
 ## Critical Issues
 
+### We should always sleep at least for 0.5 second as minimum to poll again for drivers that don't support long polling (db)
+
 ### 1. Confusing Method Names - `releaseJob()` Footgun
 
 **Problem**: The `releaseJob()` method in the `DatabaseAdapter` interface is called when a job completes successfully, but the name implies it should release the job back to the queue (common queue terminology).
