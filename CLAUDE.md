@@ -4,7 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `@muniter/queue`, a TypeScript queue system inspired by Yii2-Queue architecture. It provides a clean abstraction for job processing with multiple storage backends (Database and Amazon SQS).
+This is `@muniter/queue`, a TypeScript queue system inspired by Yii2-Queue architecture. It provides a clean abstraction for job processing with multiple storage backends (Database, Amazon SQS, and File system).
+
+### What This Package Does
+
+**@muniter/queue** is an event-driven job queue system that allows you to:
+- Define job types as TypeScript interfaces (not classes) for type safety
+- Register job handlers using simple `onJob()` callbacks
+- Add jobs to queues with compile-time validation of payloads and options
+- Process jobs asynchronously with configurable workers
+- Switch between storage backends (File, Database, SQS) without changing job code
+- Monitor job lifecycle through built-in events
+- Run jobs in isolated processes for improved stability
+
+Key differentiator: Unlike traditional job queue systems that require job classes, this uses an event-based approach where you define job types as interfaces and register handlers as functions, making it simpler and more TypeScript-friendly.
 
 ## Essential Commands
 
@@ -35,15 +48,15 @@ The CLI worker supports these arguments:
    - **DbQueue** (`src/drivers/db.ts`): Database-backed queue using DatabaseAdapter interface
    - **SqsQueue** (`src/drivers/sqs.ts`): Amazon SQS-backed queue
    - **FileQueue** (`src/drivers/file.ts`): File-based queue storing jobs as individual files with JSON index
-3. **Jobs**: Units of work implementing the `Job<T>` interface with `execute(queue: Queue)` method
+3. **Jobs**: Defined as TypeScript interfaces in a JobMap, with handlers registered via `onJob()` method
 4. **Workers**: Long-running processes that consume and execute jobs
 5. **Serialization**: Pluggable serialization system for job payloads
 
 ### Key Interfaces
 
-- **Job**: Core interface for all jobs with `execute(queue: Queue): Promise<T> | T`
+- **JobMap**: TypeScript interface mapping job names to their payload types (e.g., `{ 'send-email': { to: string; subject: string } }`)
 - **DatabaseAdapter**: Interface that database implementations must satisfy
-- **QueueMessage**: Internal message format with id, payload (Buffer), and metadata
+- **QueueMessage**: Internal message format with id, payload (string), and metadata
 - **JobMeta**: Metadata for jobs including TTR, delay, priority, timestamps
 
 ### Driver Architecture
@@ -63,7 +76,7 @@ The queue emits lifecycle events:
 ## Development Patterns
 
 ### Job Implementation
-Jobs implement the `Job<T>` interface. The payload is serialized using the configured serializer (defaults to JSON).
+Jobs are defined as TypeScript interfaces in a JobMap type, and handlers are registered using the `onJob()` method. The payload is serialized using JSON by default.
 
 ### Database Adapters
 When implementing DatabaseAdapter, you must provide:
@@ -87,7 +100,7 @@ The `example-queue-project/` directory contains a working example with SQLite da
 ## Important Notes
 
 - The CLI worker is a template - it requires user-provided database adapters or SQS clients
-- Jobs are serialized as Buffer objects and must be deserializable
+- Jobs are serialized as JSON strings (job name + payload) and stored as Buffers in database adapters
 - TTR (Time To Run) defaults to 300 seconds but can be configured per job
 - SQS driver uses message attributes for metadata and base64 encoding for payloads
 - The queue system is designed to be backend-agnostic through the driver pattern
