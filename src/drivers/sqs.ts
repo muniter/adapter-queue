@@ -28,6 +28,8 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     options: QueueOptions = {}
   ) {
     super(options);
+    // SQS supports long polling via WaitTimeSeconds
+    this.supportsLongPolling = true;
   }
 
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {

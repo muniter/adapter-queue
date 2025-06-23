@@ -33,6 +33,13 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   protected plugins: QueuePlugin[];
   protected pluginDisposers: Array<() => Promise<void>> = [];
   public readonly name?: string;
+  
+  /**
+   * Indicates whether this queue driver supports long polling.
+   * Drivers that support long polling (like SQS) can efficiently wait for messages.
+   * Drivers that don't support long polling will have a minimum 0.5s sleep between polls.
+   */
+  protected supportsLongPolling = false;
 
   /**
    * Creates a new Queue instance.
@@ -195,8 +202,14 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
         const message = await this.reserve(timeout);
         if (!message) {
           if (!repeat) break;
-          if (timeout > 0) {
-            await this.sleep(timeout * 1000);
+          
+          // Apply minimum sleep time for drivers that don't support long polling
+          const sleepMs = this.supportsLongPolling 
+            ? timeout * 1000 
+            : Math.max(500, timeout * 1000);
+          
+          if (sleepMs > 0) {
+            await this.sleep(sleepMs);
           }
           continue;
         }
@@ -326,7 +339,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
     return true; // Job is considered handled (failed)
   }
 
-  private async sleep(ms: number): Promise<void> {
+  protected async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
