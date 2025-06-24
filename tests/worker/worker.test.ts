@@ -21,8 +21,11 @@ describe('Worker', () => {
     it('should process jobs when running', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'worker-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { payload: { data: 'worker test' } });
@@ -40,9 +43,12 @@ describe('Worker', () => {
     it('should handle multiple workers', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('worker-job', async (payload) => {
-        processedJobs.push(payload.message);
-        await new Promise(resolve => setTimeout(resolve, 10)); // Small delay
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'worker-job': async ({ payload }) => {
+          processedJobs.push(payload.message);
+          await new Promise(resolve => setTimeout(resolve, 10)); // Small delay
+        }
       });
 
       // Add multiple jobs
@@ -65,10 +71,15 @@ describe('Worker', () => {
 
 
     it('should handle worker start and stop', async () => {
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'worker-job': vi.fn()
+      });
+      
       const worker = new Worker(queue);
       
       // Worker should be able to start and stop without errors
-      expect(() => worker.start(false, 0)).not.toThrow();
+      await expect(worker.start(false, 0)).resolves.not.toThrow();
     });
 
     it('should support different worker options', async () => {
@@ -83,10 +94,13 @@ describe('Worker', () => {
       const processedJobs: string[] = [];
       const startTimes: number[] = [];
       
-      queue.onJob('worker-job', async (payload) => {
-        startTimes.push(Date.now());
-        await new Promise(resolve => setTimeout(resolve, 50));
-        processedJobs.push(payload.message);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'worker-job': async ({ payload }) => {
+          startTimes.push(Date.now());
+          await new Promise(resolve => setTimeout(resolve, 50));
+          processedJobs.push(payload.message);
+        }
       });
 
       // Add jobs
@@ -103,8 +117,11 @@ describe('Worker', () => {
     it('should emit events during job processing', async () => {
       const events: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        // Job processor
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          // Job processor
+        },
+        'worker-job': vi.fn()
       });
 
       queue.on('beforeExec', () => events.push('beforeExec'));

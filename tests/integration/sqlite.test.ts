@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { unlinkSync } from 'fs';
 import Database from 'better-sqlite3';
 import { SQLiteQueue, createSQLiteQueue, SQLiteDatabaseAdapter } from '../../src/adapters/sqlite.ts';
@@ -62,8 +62,13 @@ describe('SQLite Integration Tests', () => {
     it('should add and process jobs successfully', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       const id1 = await queue.addJob('simple-job', { payload: { data: 'test1' } });
@@ -94,8 +99,13 @@ describe('SQLite Integration Tests', () => {
     it('should handle job delays correctly', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('delayed-job', async (payload) => {
-        processedJobs.push(payload.message);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': async ({ payload }) => {
+          processedJobs.push(payload.message);
+        },
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       // Add delayed job (1 second delay)
@@ -117,8 +127,13 @@ describe('SQLite Integration Tests', () => {
     it('should handle job priorities correctly', async () => {
       const processedJobs: Array<{ priority: number; data: string }> = [];
       
-      queue.onJob('priority-job', async (payload) => {
-        processedJobs.push(payload);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': async ({ payload }) => {
+          processedJobs.push(payload);
+        }
       });
 
       // Add jobs with different priorities (higher number = higher priority)
@@ -144,10 +159,15 @@ describe('SQLite Integration Tests', () => {
     it('should handle job failures and errors', async () => {
       const errors: any[] = [];
       
-      queue.onJob('failing-job', async (payload) => {
-        if (payload.shouldFail) {
-          throw new Error('Job intentionally failed');
-        }
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': async ({ payload }) => {
+          if (payload.shouldFail) {
+            throw new Error('Job intentionally failed');
+          }
+        },
+        'priority-job': vi.fn()
       });
 
       queue.on('afterError', (event) => {

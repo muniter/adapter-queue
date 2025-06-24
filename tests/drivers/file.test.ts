@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -242,8 +242,11 @@ describe('FileQueue', () => {
     it('should process jobs with event handlers', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { payload: { data: 'test1' } });

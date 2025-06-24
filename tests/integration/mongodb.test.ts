@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import { MongoClient, ObjectId } from 'mongodb';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { MongoQueue, createMongoQueue, createMongoQueueFromUrl, MongoDatabaseAdapter } from '../../src/adapters/mongodb.ts';
@@ -105,8 +105,13 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     it('should add and process jobs successfully', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       const id1 = await queue.addJob('simple-job', { payload: { data: 'test1' } });
@@ -139,8 +144,13 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     it('should handle job delays correctly', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('delayed-job', async (payload) => {
-        processedJobs.push(payload.message);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': async ({ payload }) => {
+          processedJobs.push(payload.message);
+        },
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       // Add delayed job (1 second delay)
@@ -162,8 +172,13 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     it('should handle job priorities correctly', async () => {
       const processedJobs: Array<{ priority: number; data: string }> = [];
       
-      queue.onJob('priority-job', async (payload) => {
-        processedJobs.push(payload);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': async ({ payload }) => {
+          processedJobs.push(payload);
+        }
       });
 
       // Add jobs with different priorities (higher number = higher priority)
@@ -189,10 +204,15 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     it('should handle job failures and errors', async () => {
       const errors: any[] = [];
       
-      queue.onJob('failing-job', async (payload) => {
-        if (payload.shouldFail) {
-          throw new Error('Job intentionally failed');
-        }
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': async ({ payload }) => {
+          if (payload.shouldFail) {
+            throw new Error('Job intentionally failed');
+          }
+        },
+        'priority-job': vi.fn()
       });
 
       queue.on('afterError', (event) => {
@@ -277,13 +297,18 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       const processedJobs: string[] = [];
       let reservedJobDoc: any;
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
-        
-        // Check the job document during processing to verify TTR calculation
-        const db = client.db(testDatabase);
-        const collection = db.collection(testCollection);
-        reservedJobDoc = await collection.findOne({ status: 'reserved' });
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+          
+          // Check the job document during processing to verify TTR calculation
+          const db = client.db(testDatabase);
+          const collection = db.collection(testCollection);
+          reservedJobDoc = await collection.findOne({ status: 'reserved' });
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { 
@@ -302,8 +327,13 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       const largeData = 'x'.repeat(10000); // 10KB payload
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data.substring(0, 10) + '...');
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data.substring(0, 10) + '...');
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { payload: { data: largeData } });
@@ -315,10 +345,15 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     it('should handle concurrent job processing correctly', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 50));
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          // Simulate some processing time
+          await new Promise(resolve => setTimeout(resolve, 50));
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn()
       });
 
       // Add multiple jobs

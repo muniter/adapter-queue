@@ -42,7 +42,9 @@ describe('Plugin Lifecycle', () => {
       await queue.init();
       
       // Register a job handler
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Run queue briefly (should initialize plugins)
       await queue.run(false, 0);
@@ -60,7 +62,9 @@ describe('Plugin Lifecycle', () => {
       });
 
       await queue.init();
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Run and then the cleanup should happen
       await queue.run(false, 0);
@@ -80,7 +84,9 @@ describe('Plugin Lifecycle', () => {
       });
 
       await queue.init();
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Should not throw
       await expect(queue.run(false, 0)).resolves.not.toThrow();
@@ -97,7 +103,9 @@ describe('Plugin Lifecycle', () => {
       });
 
       await queue.init();
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Run queue briefly
       await queue.run(false, 0);
@@ -115,7 +123,9 @@ describe('Plugin Lifecycle', () => {
       });
 
       await queue.init();
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Run queue - should stop after 3 polls (stop after 2)
       await queue.run(true, 0);
@@ -137,8 +147,10 @@ describe('Plugin Lifecycle', () => {
       await queue.init();
       
       let jobExecuted = false;
-      queue.onJob('test-job', async () => {
-        jobExecuted = true;
+      queue.setHandlers({
+        'test-job': async () => {
+          jobExecuted = true;
+        }
       });
 
       // Add a job
@@ -164,8 +176,10 @@ describe('Plugin Lifecycle', () => {
 
       await queue.init();
       
-      queue.onJob('test-job', async () => {
-        throw new Error('Test error');
+      queue.setHandlers({
+        'test-job': async () => {
+          throw new Error('Test error');
+        }
       });
 
       // Add a job
@@ -194,8 +208,10 @@ describe('Plugin Lifecycle', () => {
 
       await queue.init();
       
-      queue.onJob('test-job', async (payload) => {
-        processedJob = payload;
+      queue.setHandlers({
+        'test-job': async ({ payload }) => {
+          processedJob = payload;
+        }
       });
 
       // Add a job
@@ -240,7 +256,9 @@ describe('Plugin Lifecycle', () => {
       });
 
       await queue.init();
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': async () => {}
+      });
 
       // Add a job
       await queue.addJob('test-job', { payload: { message: 'test' } });
@@ -273,8 +291,10 @@ describe('Plugin Lifecycle', () => {
       await queue.init();
       
       let jobExecuted = false;
-      queue.onJob('test-job', async () => {
-        jobExecuted = true;
+      queue.setHandlers({
+        'test-job': async () => {
+          jobExecuted = true;
+        }
       });
 
       // Add a job

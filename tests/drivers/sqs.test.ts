@@ -14,7 +14,7 @@ describe('SqsQueue', () => {
 
   beforeEach(() => {
     sqsClient = new TestSQSClient();
-    queue = new SqsQueue<TestJobs>(sqsClient as any, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue');
+    queue = new SqsQueue<TestJobs>(sqsClient, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue');
   });
 
   describe('addJob and reserve cycle', () => {
@@ -54,8 +54,12 @@ describe('SqsQueue', () => {
     it('should handle job processing', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'complex-job': vi.fn(),
+        'test-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { payload: { data: 'test1' } });
@@ -70,7 +74,7 @@ describe('SqsQueue', () => {
 
   describe('message lifecycle', () => {
     it('should delete message on successful release', async () => {
-      const id = await queue.addJob('simple-job', { payload: { data: 'test' } });
+      await queue.addJob('simple-job', { payload: { data: 'test' } });
       const reserved = await queue['reserve'](0);
       
       expect(reserved).not.toBeNull();
@@ -80,7 +84,8 @@ describe('SqsQueue', () => {
       expect(sqsClient.deletedMessages).toHaveLength(1);
     });
 
-    it('should handle failJob correctly', async () => {
+    it('should handle failJob with onFailure="delete" (default)', async () => {
+      // Default configuration: failJob does nothing, message visibility will timeout
       await queue.addJob('test-job', { payload: { data: 'test' } });
       
       const reserved = await queue['reserve'](0);
@@ -90,8 +95,31 @@ describe('SqsQueue', () => {
       const error = new Error('Job failed');
       await queue['failJob'](reserved!, error);
       
-      // SQS deletes failed messages too since it doesn't track failure states
-      expect(sqsClient.deletedMessages).toHaveLength(1);
+      // Should not delete the message with default "delete" config
+      // Message will become visible again after TTR timeout
+      expect(sqsClient.deletedMessages).toHaveLength(0);
+    });
+
+    it('should handle failJob with onFailure="leaveInQueue"', async () => {
+      // Create new test client to avoid interference with previous test
+      const newSqsClient = new TestSQSClient();
+      const leaveInQueueQueue = new SqsQueue<TestJobs>(
+        newSqsClient, 
+        'https://sqs.us-east-1.amazonaws.com/123456789/test-queue',
+        { onFailure: 'leaveInQueue' }
+      );
+      
+      await leaveInQueueQueue.addJob('test-job', { payload: { data: 'test' } });
+      
+      const reserved = await leaveInQueueQueue['reserve'](0);
+      
+      expect(reserved).not.toBeNull();
+      
+      const error = new Error('Job failed');
+      await leaveInQueueQueue['failJob'](reserved!, error);
+      
+      // Should delete the message with "leaveInQueue" config
+      expect(newSqsClient.deletedMessages).toHaveLength(1);
     });
   });
 

@@ -43,8 +43,12 @@ describe('DbQueue', () => {
     it('should handle job execution lifecycle', async () => {
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'failing-job': vi.fn(),
+        'test-job': vi.fn()
       });
 
       await queue.addJob('simple-job', { payload: { data: 'test1' } });
@@ -61,10 +65,14 @@ describe('DbQueue', () => {
     it('should handle job failure', async () => {
       const errors: any[] = [];
       
-      queue.onJob('failing-job', async (payload) => {
-        if (payload.shouldFail) {
-          throw new Error('Job intentionally failed');
-        }
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'failing-job': async ({ payload }) => {
+          if (payload.shouldFail) {
+            throw new Error('Job intentionally failed');
+          }
+        },
+        'test-job': vi.fn()
       });
 
       queue.on('afterError', (event) => {

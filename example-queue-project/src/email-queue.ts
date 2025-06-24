@@ -1,4 +1,4 @@
-import { FileQueue } from "@muniter/queue";
+import { FileQueue, Queue } from "@muniter/queue";
 import { createSQSQueue } from "@muniter/queue/sqs";
 
 interface EmailJobs {

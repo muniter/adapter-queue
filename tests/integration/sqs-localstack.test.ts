@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { SQSClient, CreateQueueCommand, DeleteQueueCommand, PurgeQueueCommand } from '@aws-sdk/client-sqs';
 import { SqsQueue } from '../../src/drivers/sqs.ts';
@@ -100,10 +100,13 @@ describe('SQS Integration Tests (LocalStack)', () => {
     it('should handle job execution lifecycle', async () => {
       const processedJobs: Array<{ id: number; data: string }> = [];
       
-      // Register job handler
-      queue.onJob('process-data', async (payload) => {
-        processedJobs.push(payload);
-        // Just process without returning string to match void return type
+      // Register job handlers
+      queue.setHandlers({
+        'process-data': async ({ payload }) => {
+          processedJobs.push(payload);
+          // Just process without returning string to match void return type
+        },
+        'send-notification': vi.fn()
       });
 
       // Add job
@@ -173,8 +176,11 @@ describe('SQS Integration Tests (LocalStack)', () => {
 
       // Process all jobs
       const processedJobs: Array<{ id: number; data: string }> = [];
-      queue.onJob('process-data', async (payload) => {
-        processedJobs.push(payload);
+      queue.setHandlers({
+        'process-data': async ({ payload }) => {
+          processedJobs.push(payload);
+        },
+        'send-notification': vi.fn()
       });
 
       // Run queue multiple times to process all jobs
@@ -201,8 +207,11 @@ describe('SQS Integration Tests (LocalStack)', () => {
       });
 
       // Register failing job handler
-      queue.onJob('process-data', async () => {
-        throw new Error('Intentional test failure');
+      queue.setHandlers({
+        'process-data': async () => {
+          throw new Error('Intentional test failure');
+        },
+        'send-notification': vi.fn()
       });
 
       await queue.addJob('process-data', {
@@ -220,12 +229,13 @@ describe('SQS Integration Tests (LocalStack)', () => {
       const processedData: any[] = [];
       const processedNotifications: any[] = [];
 
-      queue.onJob('process-data', async (payload) => {
-        processedData.push(payload);
-      });
-
-      queue.onJob('send-notification', async (payload) => {
-        processedNotifications.push(payload);
+      queue.setHandlers({
+        'process-data': async ({ payload }) => {
+          processedData.push(payload);
+        },
+        'send-notification': async ({ payload }) => {
+          processedNotifications.push(payload);
+        }
       });
 
       await queue.addJob('process-data', {

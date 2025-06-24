@@ -127,7 +127,12 @@ describe('Queue', () => {
   describe('job processing', () => {
     it('should execute job handler successfully', async () => {
       const handlerSpy = vi.fn().mockResolvedValue(undefined);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       const payloadString = JSON.stringify({
         name: 'test-job',
@@ -143,7 +148,14 @@ describe('Queue', () => {
       const result = await queue['handleMessage'](message);
       
       expect(result).toBe(true);
-      expect(handlerSpy).toHaveBeenCalledWith({ data: 'test data' });
+      expect(handlerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '1',
+          payload: { data: 'test data' },
+          meta: { ttr: 300 }
+        }),
+        queue
+      );
     });
 
     it('should emit beforeExec and afterExec events', async () => {
@@ -153,7 +165,12 @@ describe('Queue', () => {
 
       queue.on('beforeExec', beforeExecSpy);
       queue.on('afterExec', afterExecSpy);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       const payloadString = JSON.stringify({
         name: 'test-job',
@@ -186,7 +203,12 @@ describe('Queue', () => {
       const handlerSpy = vi.fn().mockRejectedValue(error);
       const errorSpy = vi.fn();
 
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       queue.on('afterError', errorSpy);
 
       const payloadString = JSON.stringify({
@@ -216,6 +238,12 @@ describe('Queue', () => {
 
     it('should error when no handler is registered', async () => {
       const errorSpy = vi.fn();
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       queue.on('afterError', errorSpy);
 
       const payloadString = JSON.stringify({
@@ -271,7 +299,12 @@ describe('Queue', () => {
     it('should sleep for at least 500ms when timeout is 0 (non-long-polling)', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueue({ plugins: [plugin] });
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with repeat=true and timeout=0
       await queue.run(true, 0);
@@ -285,7 +318,12 @@ describe('Queue', () => {
     it('should sleep for at least 500ms when timeout < 0.5s (non-long-polling)', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueue({ plugins: [plugin] });
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with timeout=0.2 (200ms)
       await queue.run(true, 0.2);
@@ -299,7 +337,12 @@ describe('Queue', () => {
     it('should use timeout value when > 0.5s (non-long-polling)', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueue({ plugins: [plugin] });
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with timeout=2 (2 seconds)
       await queue.run(true, 2);
@@ -313,7 +356,12 @@ describe('Queue', () => {
     it('should not sleep when timeout is 0 (long-polling)', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueueWithLongPolling({ plugins: [plugin] });
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with timeout=0
       await queue.run(true, 0);
@@ -326,7 +374,12 @@ describe('Queue', () => {
     it('should use exact timeout value (long-polling)', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueueWithLongPolling({ plugins: [plugin] });
-      queue.onJob('test-job', async () => {});
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with timeout=0.2 (200ms)
       await queue.run(true, 0.2);
@@ -340,6 +393,12 @@ describe('Queue', () => {
     it('should not sleep in single run mode', async () => {
       const plugin = new PollTrackingPlugin();
       const queue = new TestQueue({ plugins: [plugin] });
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
       
       // Run with repeat=false
       await queue.run(false, 0);
@@ -356,7 +415,12 @@ describe('Queue', () => {
 
     it('should call completeJob when job executes successfully', async () => {
       const handlerSpy = vi.fn().mockResolvedValue('success');
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       await queue.addJob('test-job', { payload: { data: 'test data' } });
       
@@ -372,7 +436,12 @@ describe('Queue', () => {
     it('should call failJob when job throws an error', async () => {
       const error = new Error('Job execution failed');
       const handlerSpy = vi.fn().mockRejectedValue(error);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       await queue.addJob('test-job', { payload: { data: 'test data' } });
       
@@ -387,6 +456,13 @@ describe('Queue', () => {
     });
 
     it('should call failJob when no handler is registered', async () => {
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
+      
       await queue.addJob('unregistered-job' as any, { payload: { data: 'test data' } });
       
       // Process the job
@@ -401,7 +477,12 @@ describe('Queue', () => {
 
     it('should pass correct message data to completeJob', async () => {
       const handlerSpy = vi.fn().mockResolvedValue(undefined);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       await queue.addJob('test-job', { 
         payload: { data: 'test data' },
@@ -430,7 +511,12 @@ describe('Queue', () => {
     it('should pass correct message data to failJob', async () => {
       const error = new Error('Specific failure');
       const handlerSpy = vi.fn().mockRejectedValue(error);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       await queue.addJob('test-job', { 
         payload: { data: 'failing job' },
@@ -457,7 +543,12 @@ describe('Queue', () => {
 
     it('should handle multiple successful jobs correctly', async () => {
       const handlerSpy = vi.fn().mockResolvedValue(undefined);
-      queue.onJob('test-job', handlerSpy);
+      queue.setHandlers({
+        'test-job': handlerSpy,
+        'math-job': vi.fn(),
+        'success-job': vi.fn(),
+        'fail-job': vi.fn()
+      });
 
       await queue.addJob('test-job', { payload: { data: 'job 1' } });
       await queue.addJob('test-job', { payload: { data: 'job 2' } });
@@ -478,8 +569,12 @@ describe('Queue', () => {
       const successHandler = vi.fn().mockResolvedValue(undefined);
       const failHandler = vi.fn().mockRejectedValue(new Error('Intentional failure'));
       
-      queue.onJob('success-job', successHandler);
-      queue.onJob('fail-job', failHandler);
+      queue.setHandlers({
+        'test-job': vi.fn(),
+        'math-job': vi.fn(),
+        'success-job': successHandler,
+        'fail-job': failHandler
+      });
 
       await queue.addJob('success-job', { payload: { data: 'will succeed' } });
       await queue.addJob('fail-job', { payload: { data: 'will fail' } });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { unlinkSync } from 'fs';
 import Database from 'better-sqlite3';
 import { DbQueue } from '../../src/drivers/db.ts';
@@ -60,12 +60,20 @@ describe('DbQueue with Real SQLite Adapter', () => {
       const realProcessed: string[] = [];
       const mockProcessed: string[] = [];
       
-      realQueue.onJob('simple-job', async (payload) => {
-        realProcessed.push(payload.data);
+      realQueue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          realProcessed.push(payload.data);
+        },
+        'failing-job': vi.fn(),
+        'delayed-job': vi.fn()
       });
       
-      mockQueue.onJob('simple-job', async (payload) => {
-        mockProcessed.push(payload.data);
+      mockQueue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          mockProcessed.push(payload.data);
+        },
+        'failing-job': vi.fn(),
+        'delayed-job': vi.fn()
       });
 
       // Add same jobs to both queues
@@ -118,9 +126,13 @@ describe('DbQueue with Real SQLite Adapter', () => {
       const processedJobs: string[] = [];
       let jobIdDuringProcessing: string;
       
-      realQueue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
-        // We can't easily check the job status during processing since we don't have the ID here
+      realQueue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+          // We can't easily check the job status during processing since we don't have the ID here
+        },
+        'failing-job': vi.fn(),
+        'delayed-job': vi.fn()
       });
 
       const jobId = await realQueue.addJob('simple-job', { payload: { data: 'transaction test' } });
@@ -135,8 +147,12 @@ describe('DbQueue with Real SQLite Adapter', () => {
     it('should handle priority ordering correctly', async () => {
       const processedJobs: number[] = [];
       
-      realQueue.onJob('simple-job', async (payload) => {
-        processedJobs.push(parseInt(payload.data));
+      realQueue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(parseInt(payload.data));
+        },
+        'failing-job': vi.fn(),
+        'delayed-job': vi.fn()
       });
 
       // Add jobs with different priorities (SQLite should order by priority DESC)

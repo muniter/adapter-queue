@@ -10,6 +10,30 @@ export interface JobMeta {
   receiptHandle?: string;  // For SQS
 }
 
+/**
+ * Job context object passed to handlers containing full job information.
+ */
+export interface JobContext<T> {
+  id: string;
+  payload: T;
+  meta: JobMeta;
+  pushedAt?: Date;
+  reservedAt?: Date;
+}
+
+/**
+ * Type for a single job handler function.
+ */
+export type JobHandler<T> = (job: JobContext<T>, queue: any) => Promise<void> | void;
+
+/**
+ * Type mapping all job types to their corresponding handlers.
+ * Ensures type safety and completeness of handler registration.
+ */
+export type JobHandlers<TJobMap> = {
+  [K in keyof TJobMap]: JobHandler<TJobMap[K]>;
+}
+
 export interface QueueMessage {
   id: string;
   payload: string;

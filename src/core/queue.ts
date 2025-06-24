@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest, JobContext, JobHandlers } from '../interfaces/job.ts';
 import type { QueuePlugin, QueueOptions } from '../interfaces/plugin.ts';
 
 /**
@@ -33,6 +33,16 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   protected plugins: QueuePlugin[];
   protected pluginDisposers: Array<() => Promise<void>> = [];
   public readonly name?: string;
+  
+  /**
+   * Registry of job handlers mapping job names to their handler functions.
+   */
+  public handlers: Map<string, Function> = new Map();
+  
+  /**
+   * Flag indicating whether handlers have been registered.
+   */
+  public handlersRegistered = false;
   
   /**
    * Indicates whether this queue driver supports long polling.
@@ -111,31 +121,78 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   }
 
   /**
-   * Registers a handler function for a specific job type with type safety.
+   * Sets all job handlers at once. This method must be called before starting the queue.
+   * All job types defined in TJobMap must have corresponding handlers.
+   * 
+   * @param handlers - Complete mapping of job names to their handler functions
+   * 
+   * @example
+   * ```typescript
+   * queue.setHandlers({
+   *   'send-email': async ({ payload }, queue) => {
+   *     await emailService.send(payload.to, payload.subject, payload.body);
+   *   },
+   *   'resize-image': async (job, queue) => {
+   *     const { payload, id } = job;
+   *     console.log(`Processing image resize job ${id}`);
+   *     await imageService.resize(payload.url, payload.width, payload.height);
+   *   }
+   * });
+   * ```
+   */
+  setHandlers(handlers: JobHandlers<TJobMap>): void {
+    this.handlers.clear();
+    for (const [jobName, handler] of Object.entries(handlers) as Array<[string, Function]>) {
+      this.handlers.set(jobName, handler);
+    }
+    this.handlersRegistered = true;
+  }
+
+  /**
+   * Sets or replaces a handler for a specific job type.
+   * Useful for testing or dynamically updating handlers.
    * 
    * @template K - The job name type from TJobMap
    * @param jobName - The name of the job type to handle
    * @param handler - Function to execute when this job type is processed
-   * @returns This queue instance for method chaining
    * 
    * @example
    * ```typescript
-   * queue.onJob('send-email', async (payload) => {
-   *   // payload is automatically typed as { to: string; subject: string; body: string }
-   *   await emailService.send(payload.to, payload.subject, payload.body);
-   * });
-   * 
-   * queue.onJob('resize-image', async (payload) => {
-   *   // payload is automatically typed as { url: string; width: number; height: number }
-   *   await imageService.resize(payload.url, payload.width, payload.height);
+   * // Replace handler for testing
+   * queue.setHandler('send-email', async ({ payload }, queue) => {
+   *   console.log('Mock email sent to:', payload.to);
    * });
    * ```
    */
-  onJob<K extends keyof TJobMap>(
+  setHandler<K extends keyof TJobMap>(
     jobName: K,
-    handler: (payload: TJobMap[K]) => Promise<void>
-  ): this {
-    return super.on(`job:${String(jobName)}`, handler);
+    handler: (job: JobContext<TJobMap[K]>, queue: Queue<TJobMap>) => Promise<void> | void
+  ): void {
+    this.handlers.set(String(jobName), handler);
+  }
+
+  /**
+   * Gets the current handler for a specific job type.
+   * Useful for testing or introspection.
+   * 
+   * @template K - The job name type from TJobMap
+   * @param jobName - The name of the job type
+   * @returns The handler function or undefined if not registered
+   */
+  getHandler<K extends keyof TJobMap>(jobName: K): Function | undefined {
+    return this.handlers.get(String(jobName));
+  }
+
+  /**
+   * Validates that handlers have been registered before starting the queue.
+   */
+  public validateHandlers(): void {
+    if (!this.handlersRegistered) {
+      throw new Error(
+        'Handlers must be registered with setHandlers() before calling run(). ' +
+        'Use queue.setHandlers({ ... }) to register all job type handlers.'
+      );
+    }
   }
 
   override on(event: string | symbol, listener: (...args: any[]) => void): this {
@@ -162,6 +219,9 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * ```
    */
   async run(repeat: boolean = false, timeout: number = 0): Promise<void> {
+    // Validate that handlers have been registered
+    this.validateHandlers();
+    
     const disposers = [...this.pluginDisposers];
 
     // 1. Initialize plugins if not already initialized
@@ -295,18 +355,23 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
       const beforeEvent: QueueEvent = { type: 'beforeExec', id: message.id, name, payload, meta: message.meta };
       this.emit('beforeExec', beforeEvent);
 
-      // Execute the job handler
-      const jobEvent = `job:${name}`;
-      
-      if (this.listenerCount(jobEvent) === 0) {
+      // Get the registered handler for this job type
+      const handler = this.handlers.get(name);
+      if (!handler) {
         throw new Error(`No handler registered for job type: ${name}`);
       }
 
-      // Get all handlers for this job type and execute them
-      const handlers = this.listeners(jobEvent) as Array<(payload: any) => Promise<void>>;
-      const results = await Promise.all(handlers.map(handler => handler(payload)));
-      
-      const result = results.length === 1 ? results[0] : results;
+      // Create job context object with full job information
+      const jobContext: JobContext<any> = {
+        id: message.id,
+        payload: payload,
+        meta: message.meta,
+        pushedAt: message.meta.pushedAt,
+        reservedAt: message.meta.reservedAt
+      };
+
+      // Execute the handler with job context and queue reference
+      const result = await handler(jobContext, this);
 
       const afterEvent: QueueEvent = { type: 'afterExec', id: message.id, name, payload, meta: message.meta, result };
       this.emit('afterExec', afterEvent);

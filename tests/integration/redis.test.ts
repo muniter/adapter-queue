@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import { createClient } from 'redis';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { RedisQueue, createRedisQueue, RedisDatabaseAdapter } from '../../src/adapters/redis.ts';
@@ -88,8 +88,13 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn(),
       });
 
       const id1 = await queue.addJob('simple-job', { payload: { data: 'test1' } });
@@ -122,8 +127,13 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       const processedJobs: string[] = [];
       
-      queue.onJob('delayed-job', async (payload) => {
-        processedJobs.push(payload.message);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': async ({ payload }) => {
+          processedJobs.push(payload.message);
+        },
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn(),
       });
 
       // Add delayed job (1 second delay)
@@ -146,8 +156,13 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       const processedJobs: Array<{ priority: number; data: string }> = [];
       
-      queue.onJob('priority-job', async (payload) => {
-        processedJobs.push(payload);
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': async ({ payload }) => {
+          processedJobs.push(payload);
+        },
       });
 
       // Add jobs with different priorities (higher number = higher priority)
@@ -174,10 +189,15 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       const errors: any[] = [];
       
-      queue.onJob('failing-job', async (payload) => {
-        if (payload.shouldFail) {
-          throw new Error('Job intentionally failed');
-        }
+      queue.setHandlers({
+        'simple-job': vi.fn(),
+        'delayed-job': vi.fn(),
+        'failing-job': async ({ payload }) => {
+          if (payload.shouldFail) {
+            throw new Error('Job intentionally failed');
+          }
+        },
+        'priority-job': vi.fn(),
       });
 
       queue.on('afterError', (event) => {
@@ -249,10 +269,15 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       const processedJobs: string[] = [];
       
-      queue.onJob('simple-job', async (payload) => {
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 50));
-        processedJobs.push(payload.data);
+      queue.setHandlers({
+        'simple-job': async ({ payload }) => {
+          // Simulate some processing time
+          await new Promise(resolve => setTimeout(resolve, 50));
+          processedJobs.push(payload.data);
+        },
+        'delayed-job': vi.fn(),
+        'failing-job': vi.fn(),
+        'priority-job': vi.fn(),
       });
 
       // Add multiple jobs

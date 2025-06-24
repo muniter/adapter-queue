@@ -18,6 +18,10 @@ import type {
 } from "../interfaces/job.ts";
 import type { QueueOptions } from "../interfaces/plugin.ts";
 
+interface SqsClient {
+  send: SQSClient["send"];
+}
+
 export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   TJobMap,
   SqsJobRequest<any>
@@ -25,7 +29,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   #onFailure: "delete" | "leaveInQueue"
 
   constructor(
-    private client: SQSClient,
+    private client: SqsClient,
     private queueUrl: string,
     options: QueueOptions & { onFailure: "delete" | "leaveInQueue" } = {
       onFailure: "delete",
