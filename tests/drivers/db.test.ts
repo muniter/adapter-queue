@@ -5,6 +5,7 @@ import { TestDatabaseAdapter } from '../mocks/test-database-adapter.ts';
 interface TestJobs {
   'simple-job': { data: string };
   'failing-job': { shouldFail: boolean };
+  'test-job': { data: string };
 }
 
 describe('DbQueue', () => {
@@ -90,8 +91,27 @@ describe('DbQueue', () => {
       expect(await queue.status(id)).toBe('reserved');
       
       // After completing
-      await queue['release']({ id, payload: '', meta: {} });
+      await queue['completeJob']({ id, payload: '', meta: {} });
       expect(await queue.status(id)).toBe('done');
+    });
+
+    it('should call failJob correctly', async () => {
+      const id = await queue.addJob('test-job', { payload: { data: 'test' } });
+      
+      // Reserve the job
+      await queue['reserve'](0);
+      expect(await queue.status(id)).toBe('reserved');
+      
+      // After failing
+      const error = new Error('Job failed');
+      await queue['failJob']({ id, payload: '', meta: {} }, error);
+      expect(await queue.status(id)).toBe('failed'); // Test adapter returns failed status
+      
+      // Verify the adapter's failJob was called
+      expect(dbAdapter.getAllJobs().find(j => j.id === id)).toBeTruthy();
+      const job = dbAdapter.getAllJobs().find(j => j.id === id);
+      expect((job as any).failed).toBe(true);
+      expect((job as any).error).toBe('Job failed');
     });
   });
 

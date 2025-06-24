@@ -148,7 +148,13 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
     }
   }
 
-  protected async release(message: QueueMessage): Promise<void> {
+  protected async completeJob(message: QueueMessage): Promise<void> {
+    await this.complete(message.id);
+  }
+
+  protected async failJob(message: QueueMessage, error: unknown): Promise<void> {
+    // For file queue, we'll remove failed jobs too (similar to complete)
+    // Future enhancement could track failed jobs in the index
     await this.complete(message.id);
   }
 

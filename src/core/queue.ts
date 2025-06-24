@@ -264,9 +264,11 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
           // Don't let plugin errors affect job completion
         }
 
-        // Complete the job if successful
+        // Complete the job if successful, otherwise mark as failed
         if (success) {
-          await this.release(message);
+          await this.completeJob(message);
+        } else {
+          await this.failJob(message, jobError || new Error('Unknown job failure'));
         }
       }
     } finally {
@@ -320,7 +322,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * 
    * @param message - The queue message that failed to process
    * @param error - The error that occurred during processing
-   * @returns Promise resolving to true (job is considered handled despite the error)
+   * @returns Promise resolving to false (job failed)
    * @protected
    */
   protected async handleError(message: QueueMessage, error: unknown): Promise<boolean> {
@@ -336,7 +338,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
       this.emit('afterError', errorEvent);
     }
 
-    return true; // Job is considered handled (failed)
+    return false; // Job failed
   }
 
   protected async sleep(ms: number): Promise<void> {
@@ -367,14 +369,25 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   protected abstract reserve(timeout: number): Promise<QueueMessage | null>;
   
   /**
-   * Releases a processed job from the queue (marks as complete).
+   * Marks a job as successfully completed and removes it from the queue.
    * 
-   * @param message - The queue message to release
-   * @returns Promise that resolves when job is released
+   * @param message - The queue message to complete
+   * @returns Promise that resolves when job is marked as complete
    * @protected
    * @abstract
    */
-  protected abstract release(message: QueueMessage): Promise<void>;
+  protected abstract completeJob(message: QueueMessage): Promise<void>;
+  
+  /**
+   * Marks a job as failed and handles failure appropriately (remove or retry).
+   * 
+   * @param message - The queue message that failed
+   * @param error - The error that caused the failure
+   * @returns Promise that resolves when job failure is handled
+   * @protected
+   * @abstract
+   */
+  protected abstract failJob(message: QueueMessage, error: unknown): Promise<void>;
   
   /**
    * Retrieves the current status of a job by its ID.

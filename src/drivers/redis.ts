@@ -216,11 +216,20 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     };
   }
 
-  protected async release(message: QueueMessage): Promise<void> {
+  protected async completeJob(message: QueueMessage): Promise<void> {
     // Remove from reserved queue
     await this.redis.zrem(this.reservedKey, message.id);
     
     // Remove job data
+    await this.redis.hdel(this.messagesKey, message.id);
+    await this.redis.hdel(this.attemptsKey, message.id);
+  }
+
+  protected async failJob(message: QueueMessage, error: unknown): Promise<void> {
+    // Remove from reserved queue
+    await this.redis.zrem(this.reservedKey, message.id);
+    
+    // Remove job data (Redis doesn't track failed job history by default)
     await this.redis.hdel(this.messagesKey, message.id);
     await this.redis.hdel(this.attemptsKey, message.id);
   }

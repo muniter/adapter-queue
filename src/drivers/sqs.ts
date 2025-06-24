@@ -22,14 +22,19 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   TJobMap,
   SqsJobRequest<any>
 > {
+  #onFailure: "delete" | "leaveInQueue"
+
   constructor(
     private client: SQSClient,
     private queueUrl: string,
-    options: QueueOptions = {}
+    options: QueueOptions & { onFailure: "delete" | "leaveInQueue" } = {
+      onFailure: "delete",
+    }
   ) {
     super(options);
     // SQS supports long polling via WaitTimeSeconds
     this.supportsLongPolling = true;
+    this.#onFailure = options.onFailure;
   }
 
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
@@ -57,7 +62,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       DelaySeconds: meta.delay || 0,
       MessageAttributes: messageAttributes,
     });
-    
+
     const result = await this.client.send(command);
 
     if (!result.MessageId) {
@@ -73,7 +78,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       WaitTimeSeconds: timeout,
       MessageAttributeNames: ["All"],
     });
-    
+
     const result = await this.client.send(command);
 
     if (!result.Messages || result.Messages.length === 0) {
@@ -105,7 +110,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
         ReceiptHandle: message.ReceiptHandle,
         VisibilityTimeout: meta.ttr,
       });
-      
+
       await this.client.send(visibilityCommand);
     }
 
@@ -119,10 +124,10 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     };
   }
 
-  protected async release(message: QueueMessage): Promise<void> {
+  protected async completeJob(message: QueueMessage): Promise<void> {
     if (!message.meta.receiptHandle) {
       throw new Error(
-        "Cannot release SQS message: receiptHandle is missing from metadata"
+        "Cannot complete SQS message: receiptHandle is missing from metadata"
       );
     }
 
@@ -130,8 +135,30 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       QueueUrl: this.queueUrl,
       ReceiptHandle: message.meta.receiptHandle,
     });
-    
+
     await this.client.send(deleteCommand);
+  }
+
+  protected async failJob(
+    message: QueueMessage,
+    error: unknown
+  ): Promise<void> {
+    if (this.#onFailure === "leaveInQueue") {
+      if (!message.meta.receiptHandle) {
+        throw new Error(
+          "Cannot fail SQS message: receiptHandle is missing from metadata"
+        );
+      }
+
+      // For SQS, we delete failed messages too since SQS doesn't track failure states
+      // Future enhancement could send to a dead letter queue
+      const deleteCommand = new DeleteMessageCommand({
+        QueueUrl: this.queueUrl,
+        ReceiptHandle: message.meta.receiptHandle,
+      });
+
+      await this.client.send(deleteCommand);
+    }
   }
 
   async status(id: string): Promise<JobStatus> {

@@ -5,6 +5,7 @@ import { TestSQSClient } from '../mocks/test-sqs-client.ts';
 interface TestJobs {
   'simple-job': { data: string };
   'complex-job': { id: number; name: string };
+  'test-job': { data: string };
 }
 
 describe('SqsQueue', () => {
@@ -74,8 +75,22 @@ describe('SqsQueue', () => {
       
       expect(reserved).not.toBeNull();
       
-      await queue['release'](reserved!);
+      await queue['completeJob'](reserved!);
       
+      expect(sqsClient.deletedMessages).toHaveLength(1);
+    });
+
+    it('should handle failJob correctly', async () => {
+      await queue.addJob('test-job', { payload: { data: 'test' } });
+      
+      const reserved = await queue['reserve'](0);
+      
+      expect(reserved).not.toBeNull();
+      
+      const error = new Error('Job failed');
+      await queue['failJob'](reserved!, error);
+      
+      // SQS deletes failed messages too since it doesn't track failure states
       expect(sqsClient.deletedMessages).toHaveLength(1);
     });
   });

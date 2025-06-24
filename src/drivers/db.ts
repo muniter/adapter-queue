@@ -33,8 +33,13 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
     };
   }
 
-  protected async release(message: QueueMessage): Promise<void> {
+  protected async completeJob(message: QueueMessage): Promise<void> {
     await this.db.completeJob(message.id);
+  }
+
+  protected async failJob(message: QueueMessage, error: unknown): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await this.db.failJob(message.id, errorMessage);
   }
 
   async status(id: string): Promise<JobStatus> {

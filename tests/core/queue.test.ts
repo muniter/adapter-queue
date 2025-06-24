@@ -5,10 +5,14 @@ import type { JobMeta, QueueMessage, DbJobRequest } from '../../src/interfaces/j
 interface TestJobs {
   'test-job': { data: string };
   'math-job': { a: number; b: number };
+  'success-job': { data: string };
+  'fail-job': { data: string };
 }
 
 class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
   public messages: Array<{ payload: string; meta: JobMeta; id: string }> = [];
+  public completedJobs: Array<{ id: string; message: QueueMessage }> = [];
+  public failedJobs: Array<{ id: string; message: QueueMessage; error: unknown }> = [];
   private nextId = 1;
 
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
@@ -29,12 +33,22 @@ class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
     };
   }
 
-  protected async release(message: QueueMessage): Promise<void> {
-    // Test implementation - just log
+  protected async completeJob(message: QueueMessage): Promise<void> {
+    this.completedJobs.push({ id: message.id, message });
+  }
+
+  protected async failJob(message: QueueMessage, error: unknown): Promise<void> {
+    this.failedJobs.push({ id: message.id, message, error });
   }
 
   async status(id: string): Promise<'waiting' | 'reserved' | 'done'> {
     return 'done';
+  }
+
+  // Helper methods for testing
+  clearTracking() {
+    this.completedJobs = [];
+    this.failedJobs = [];
   }
 }
 
@@ -188,7 +202,7 @@ describe('Queue', () => {
 
       const result = await queue['handleMessage'](message);
       
-      expect(result).toBe(true); // Error is handled
+      expect(result).toBe(false); // Job failed
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'afterError',
@@ -217,7 +231,7 @@ describe('Queue', () => {
 
       const result = await queue['handleMessage'](message);
       
-      expect(result).toBe(true); // Error is handled
+      expect(result).toBe(false); // Job failed
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'afterError',
@@ -332,6 +346,158 @@ describe('Queue', () => {
       
       // Should only poll once
       expect(plugin.pollCount).toBe(1);
+    });
+  });
+
+  describe('job completion methods', () => {
+    beforeEach(() => {
+      queue.clearTracking();
+    });
+
+    it('should call completeJob when job executes successfully', async () => {
+      const handlerSpy = vi.fn().mockResolvedValue('success');
+      queue.onJob('test-job', handlerSpy);
+
+      await queue.addJob('test-job', { payload: { data: 'test data' } });
+      
+      // Process the job
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(1);
+      expect(queue.failedJobs).toHaveLength(0);
+      expect(queue.completedJobs[0]?.id).toBe('1');
+      expect(handlerSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should call failJob when job throws an error', async () => {
+      const error = new Error('Job execution failed');
+      const handlerSpy = vi.fn().mockRejectedValue(error);
+      queue.onJob('test-job', handlerSpy);
+
+      await queue.addJob('test-job', { payload: { data: 'test data' } });
+      
+      // Process the job
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(0);
+      expect(queue.failedJobs).toHaveLength(1);
+      expect(queue.failedJobs[0]?.id).toBe('1');
+      expect(queue.failedJobs[0]?.error).toBe(error);
+      expect(handlerSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should call failJob when no handler is registered', async () => {
+      await queue.addJob('unregistered-job' as any, { payload: { data: 'test data' } });
+      
+      // Process the job
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(0);
+      expect(queue.failedJobs).toHaveLength(1);
+      expect(queue.failedJobs[0]?.id).toBe('1');
+      expect(queue.failedJobs[0]?.error).toBeInstanceOf(Error);
+      expect((queue.failedJobs[0]?.error as any).message).toContain('No handler registered for job type: unregistered-job');
+    });
+
+    it('should pass correct message data to completeJob', async () => {
+      const handlerSpy = vi.fn().mockResolvedValue(undefined);
+      queue.onJob('test-job', handlerSpy);
+
+      await queue.addJob('test-job', { 
+        payload: { data: 'test data' },
+        ttr: 600,
+        delay: 10,
+        priority: 5
+      });
+      
+      // Process the job
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(1);
+      const completedJob = queue.completedJobs[0]!;
+      
+      expect(completedJob.id).toBe('1');
+      expect(completedJob.message.id).toBe('1');
+      expect(completedJob.message.meta.ttr).toBe(600);
+      expect(completedJob.message.meta.delay).toBe(10);
+      expect(completedJob.message.meta.priority).toBe(5);
+      expect(JSON.parse(completedJob.message.payload)).toEqual({
+        name: 'test-job',
+        payload: { data: 'test data' }
+      });
+    });
+
+    it('should pass correct message data to failJob', async () => {
+      const error = new Error('Specific failure');
+      const handlerSpy = vi.fn().mockRejectedValue(error);
+      queue.onJob('test-job', handlerSpy);
+
+      await queue.addJob('test-job', { 
+        payload: { data: 'failing job' },
+        ttr: 300,
+        priority: 10
+      });
+      
+      // Process the job
+      await queue.run(false, 0);
+
+      expect(queue.failedJobs).toHaveLength(1);
+      const failedJob = queue.failedJobs[0]!;
+      
+      expect(failedJob.id).toBe('1');
+      expect(failedJob.message.id).toBe('1');
+      expect(failedJob.message.meta.ttr).toBe(300);
+      expect(failedJob.message.meta.priority).toBe(10);
+      expect(failedJob.error).toBe(error);
+      expect(JSON.parse(failedJob.message.payload)).toEqual({
+        name: 'test-job',
+        payload: { data: 'failing job' }
+      });
+    });
+
+    it('should handle multiple successful jobs correctly', async () => {
+      const handlerSpy = vi.fn().mockResolvedValue(undefined);
+      queue.onJob('test-job', handlerSpy);
+
+      await queue.addJob('test-job', { payload: { data: 'job 1' } });
+      await queue.addJob('test-job', { payload: { data: 'job 2' } });
+      await queue.addJob('test-job', { payload: { data: 'job 3' } });
+      
+      // Process all jobs
+      await queue.run(false, 0);
+      await queue.run(false, 0);
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(3);
+      expect(queue.failedJobs).toHaveLength(0);
+      expect(queue.completedJobs.map(j => j.id)).toEqual(['1', '2', '3']);
+      expect(handlerSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle mixed success and failure jobs correctly', async () => {
+      const successHandler = vi.fn().mockResolvedValue(undefined);
+      const failHandler = vi.fn().mockRejectedValue(new Error('Intentional failure'));
+      
+      queue.onJob('success-job', successHandler);
+      queue.onJob('fail-job', failHandler);
+
+      await queue.addJob('success-job', { payload: { data: 'will succeed' } });
+      await queue.addJob('fail-job', { payload: { data: 'will fail' } });
+      await queue.addJob('success-job', { payload: { data: 'will succeed 2' } });
+      
+      // Process all jobs
+      await queue.run(false, 0);
+      await queue.run(false, 0);
+      await queue.run(false, 0);
+
+      expect(queue.completedJobs).toHaveLength(2);
+      expect(queue.failedJobs).toHaveLength(1);
+      
+      expect(queue.completedJobs.map(j => j.id)).toEqual(['1', '3']);
+      expect(queue.failedJobs.map(j => j.id)).toEqual(['2']);
+      
+      expect(successHandler).toHaveBeenCalledTimes(2);
+      expect(failHandler).toHaveBeenCalledTimes(1);
     });
   });
 });
