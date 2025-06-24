@@ -1,4 +1,4 @@
-import { FileQueue, Queue } from "@muniter/queue";
+import { FileQueue } from "@muniter/queue";
 import { createSQSQueue } from "@muniter/queue/sqs";
 
 interface EmailJobs {
@@ -22,29 +22,30 @@ export const emailQueueSqs = createSQSQueue<EmailJobs>(
 export const emailQueue = emailQueueSqs;
 
 // Register job handlers for email queue
-emailQueue.onJob("welcome-email", async (payload) => {
-  const { to, name } = payload;
-  console.log(`Sending welcome email to ${to} (${name})`);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+emailQueue.setHandlers({
+  "welcome-email": async ({ payload }) => {
+    const { to, name } = payload;
+    console.log(`Sending welcome email to ${to} (${name})`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  if (Math.random() > 0.8) {
-    throw new Error("Email service temporarily unavailable");
+    if (Math.random() > 0.8) {
+      throw new Error("Email service temporarily unavailable");
+    }
+
+    console.log(`Welcome email sent successfully to ${to}`);
+  },
+  "notification": async ({ payload }, queue) => {
+    const { to, subject, body } = payload;
+    console.log(`Sending notification email to ${to}: ${subject}`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    queue.addJob("welcome-email", {
+      payload: {
+        to: "javier@muniter.com",
+        name: "Javier",
+      },
+    });
+    console.log(`Notification sent successfully`);
   }
-
-  console.log(`Welcome email sent successfully to ${to}`);
-});
-
-emailQueue.onJob("notification", async (payload) => {
-  const { to, subject, body } = payload;
-  console.log(`Sending notification email to ${to}: ${subject}`);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  emailQueue.addJob("welcome-email", {
-    payload: {
-      to: "javier@muniter.com",
-      name: "Javier",
-    },
-  });
-  console.log(`Notification sent successfully`);
 });
 
 emailQueue.on("beforeExec", (event) => {

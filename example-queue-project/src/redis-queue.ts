@@ -9,18 +9,19 @@ interface EmailJobs {
 export const emailQueue = createRedisQueue<EmailJobs>('redis://localhost:6379');
 
 // Register job handlers
-emailQueue.onJob("welcome-email", async (payload) => {
-  const { to, name } = payload;
-  console.log(`[Redis] Sending welcome email to ${to} (${name})`);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  console.log(`[Redis] Welcome email sent successfully to ${to}`);
-});
-
-emailQueue.onJob("notification", async (payload) => {
-  const { to, subject, body } = payload;
-  console.log(`[Redis] Sending notification email to ${to}: ${subject}`);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  console.log(`[Redis] Notification sent successfully`);
+emailQueue.setHandlers({
+  "welcome-email": async ({ payload }) => {
+    const { to, name } = payload;
+    console.log(`[Redis] Sending welcome email to ${to} (${name})`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log(`[Redis] Welcome email sent successfully to ${to}`);
+  },
+  "notification": async ({ payload }) => {
+    const { to, subject, body } = payload;
+    console.log(`[Redis] Sending notification email to ${to}: ${subject}`);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    console.log(`[Redis] Notification sent successfully`);
+  }
 });
 
 // Event listeners

@@ -10,7 +10,7 @@ This is `@muniter/queue`, a TypeScript queue system inspired by Yii2-Queue archi
 
 **@muniter/queue** is an event-driven job queue system that allows you to:
 - Define job types as TypeScript interfaces (not classes) for type safety
-- Register job handlers using simple `onJob()` callbacks
+- Register job handlers using type-safe `setHandlers()` method
 - Add jobs to queues with compile-time validation of payloads and options
 - Process jobs asynchronously with configurable workers
 - Switch between storage backends (File, Database, SQS) without changing job code
@@ -48,7 +48,7 @@ The CLI worker supports these arguments:
    - **DbQueue** (`src/drivers/db.ts`): Database-backed queue using DatabaseAdapter interface
    - **SqsQueue** (`src/drivers/sqs.ts`): Amazon SQS-backed queue
    - **FileQueue** (`src/drivers/file.ts`): File-based queue storing jobs as individual files with JSON index
-3. **Jobs**: Defined as TypeScript interfaces in a JobMap, with handlers registered via `onJob()` method
+3. **Jobs**: Defined as TypeScript interfaces in a JobMap, with handlers registered via `setHandlers()` method
 4. **Workers**: Long-running processes that consume and execute jobs
 5. **Serialization**: Pluggable serialization system for job payloads
 
@@ -76,7 +76,7 @@ The queue emits lifecycle events:
 ## Development Patterns
 
 ### Job Implementation
-Jobs are defined as TypeScript interfaces in a JobMap type, and handlers are registered using the `onJob()` method. The payload is serialized using JSON by default.
+Jobs are defined as TypeScript interfaces in a JobMap type, and handlers are registered using the `setHandlers()` method. The payload is serialized using JSON by default.
 
 ### Database Adapters
 When implementing DatabaseAdapter, you must provide:

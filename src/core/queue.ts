@@ -17,12 +17,19 @@ import type { QueuePlugin, QueueOptions } from '../interfaces/plugin.ts';
  * const queue = new FileQueue<MyJobs>({ path: './queue-data' });
  * 
  * // Register job handlers
- * queue.onJob('send-email', async (payload) => {
- *   await sendEmail(payload.to, payload.subject, payload.body);
+ * queue.setHandlers({
+ *   'send-email': async ({ payload }) => {
+ *     await sendEmail(payload.to, payload.subject, payload.body);
+ *   },
+ *   'resize-image': async ({ payload }) => {
+ *     await resizeImage(payload.url, payload.width, payload.height);
+ *   }
  * });
  * 
  * // Add jobs with type safety
- * await queue.addJob('send-email', { to: 'user@example.com', subject: 'Hello', body: 'World' });
+ * await queue.addJob('send-email', { 
+ *   payload: { to: 'user@example.com', subject: 'Hello', body: 'World' }
+ * });
  * 
  * // Start processing
  * await queue.run();

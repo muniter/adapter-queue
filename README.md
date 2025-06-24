@@ -37,17 +37,22 @@ interface MyJobs {
 
 const queue = new FileQueue<MyJobs>({ path: './queue-data' });
 
-// Register event-based handlers
-queue.onJob('send-email', async (payload) => {
-  // payload is automatically typed as { to: string; subject: string; body: string }
-  console.log(`Sending email to ${payload.to}: ${payload.subject}`);
-  await sendEmail(payload.to, payload.subject, payload.body);
-});
-
-queue.onJob('resize-image', async (payload) => {
-  // payload is automatically typed as { url: string; width: number; height: number }
-  console.log(`Resizing image ${payload.url} to ${payload.width}x${payload.height}`);
-  await resizeImage(payload.url, payload.width, payload.height);
+// Register type-safe handlers
+queue.setHandlers({
+  'send-email': async ({ payload }) => {
+    // payload is automatically typed as { to: string; subject: string; body: string }
+    console.log(`Sending email to ${payload.to}: ${payload.subject}`);
+    await sendEmail(payload.to, payload.subject, payload.body);
+  },
+  'resize-image': async ({ payload }) => {
+    // payload is automatically typed as { url: string; width: number; height: number }
+    console.log(`Resizing image ${payload.url} to ${payload.width}x${payload.height}`);
+    await resizeImage(payload.url, payload.width, payload.height);
+  },
+  'generate-report': async ({ payload }) => {
+    // Handle report generation
+    console.log(`Generating ${payload.type} report for ${payload.period}`);
+  }
 });
 ```
 
@@ -309,7 +314,7 @@ pnpm run queue:worker -- --timeout 10
 ### Queue Methods
 
 - `addJob<K>(name: K, request: { payload: JobMap[K], ...options }): Promise<string>` - Add job to queue
-- `onJob<K>(name: K, handler: (payload: JobMap[K]) => Promise<void>): this` - Register job handler
+- `setHandlers(handlers: JobHandlers<JobMap>): void` - Register all job handlers with type safety
 - `run(repeat?: boolean, timeout?: number): Promise<void>` - Start processing jobs
 - `status(id: string): Promise<JobStatus>` - Get job status
 
@@ -329,7 +334,7 @@ interface JobMap {
 }
 
 // Jobs are defined as TypeScript interfaces, not classes
-// Handlers are registered with queue.onJob()
+// Handlers are registered with queue.setHandlers()
 ```
 
 ## Testing

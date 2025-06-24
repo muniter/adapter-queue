@@ -390,8 +390,10 @@ const queue = new FileQueue<MyJobs>({
 });
 
 // Register job handlers
-queue.onJob('send-email', async (payload) => {
-  await emailService.send(payload);
+queue.setHandlers({
+  'send-email': async ({ payload }) => {
+    await emailService.send(payload);
+  }
 });
 
 // Simple run call - plugins are already configured
