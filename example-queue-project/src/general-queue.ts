@@ -5,7 +5,7 @@ export interface GeneralJobs {
     'generate-report': { type: string; period: string };
 }
 
-export const generalQueue = createSQLiteQueue<GeneralJobs>('queue.db');
+export const generalQueue = createSQLiteQueue<GeneralJobs>('general-queue', 'queue.db');
 
 // Register job handlers for general queue
 generalQueue.setHandlers({

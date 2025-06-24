@@ -15,6 +15,10 @@ class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
   public failedJobs: Array<{ id: string; message: QueueMessage; error: unknown }> = [];
   private nextId = 1;
 
+  constructor(options: any = {}) {
+    super({ name: 'test-queue', ...options });
+  }
+
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
     const id = this.nextId.toString();
     this.nextId++;

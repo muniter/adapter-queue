@@ -14,7 +14,7 @@ describe('DbQueue', () => {
 
   beforeEach(() => {
     dbAdapter = new TestDatabaseAdapter();
-    queue = new DbQueue<TestJobs>(dbAdapter);
+    queue = new DbQueue<TestJobs>(dbAdapter, { name: 'test-queue' });
   });
 
   describe('addJob and reserve cycle', () => {

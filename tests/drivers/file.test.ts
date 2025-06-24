@@ -15,7 +15,7 @@ describe('FileQueue', () => {
 
   beforeEach(async () => {
     testDir = path.join(os.tmpdir(), 'queue-test-' + Date.now());
-    queue = new FileQueue<TestJobs>({ path: testDir });
+    queue = new FileQueue<TestJobs>({ name: 'test-queue', path: testDir });
   });
 
   afterEach(async () => {

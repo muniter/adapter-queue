@@ -185,33 +185,35 @@ export class MongoDatabaseAdapter implements DatabaseAdapter {
 // Main export - constructor pattern
 export class MongoQueue<T = Record<string, any>> extends DbQueue<T> {
   mongoAdapter: MongoDatabaseAdapter;
-  constructor(config: { collection: MongoCollection }) {
+  constructor(config: { collection: MongoCollection; name: string }) {
     const adapter = new MongoDatabaseAdapter(config.collection);
-    super(adapter);
+    super(adapter, { name: config.name });
     this.mongoAdapter = adapter;
   }
 }
 
 // Convenience factory for MongoDB driver
 export function createMongoQueue<T = Record<string, any>>(
+  name: string,
   client: MongoClient,
   database: string,
   collection: string = 'jobs'
 ): MongoQueue<T> {
   const db = client.db(database);
   const col = db.collection(collection);
-  return new MongoQueue<T>({ collection: col });
+  return new MongoQueue<T>({ collection: col, name });
 }
 
 // Convenience factory with connection string
 export async function createMongoQueueFromUrl<T = Record<string, any>>(
+  name: string,
   url: string,
   database: string,
   collection: string = 'jobs'
 ): Promise<MongoQueue<T>> {
   const client = new MongoClient(url);
   await client.connect();
-  return createMongoQueue<T>(client, database, collection);
+  return createMongoQueue<T>(name, client, database, collection);
 }
 
 // Re-export for convenience

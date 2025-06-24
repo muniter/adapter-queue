@@ -31,9 +31,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
   constructor(
     private client: SqsClient,
     private queueUrl: string,
-    options: QueueOptions & { onFailure: "delete" | "leaveInQueue" } = {
-      onFailure: "delete",
-    }
+    options: QueueOptions & { onFailure: "delete" | "leaveInQueue" }
   ) {
     super(options);
     // SQS supports long polling via WaitTimeSeconds

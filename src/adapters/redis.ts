@@ -309,16 +309,16 @@ export class RedisDatabaseAdapter implements DatabaseAdapter {
 
 // Main export - constructor pattern for database-backed Redis queue
 export class RedisQueue<T = Record<string, any>> extends DbQueue<T> {
-  constructor(config: { client: RedisClient; keyPrefix?: string }) {
+  constructor(config: { client: RedisClient; keyPrefix?: string; name: string }) {
     const adapter = new RedisDatabaseAdapter(config.client, config.keyPrefix);
-    super(adapter);
+    super(adapter, { name: config.name });
   }
 }
 
 // Convenience factory for node-redis
-export function createRedisQueue<T = Record<string, any>>(url?: string): RedisQueue<T> {
+export function createRedisQueue<T = Record<string, any>>(name: string, url?: string): RedisQueue<T> {
   const client = createClient(url ? { url } : {}) as any;
-  return new RedisQueue<T>({ client });
+  return new RedisQueue<T>({ client, name });
 }
 
 // Re-export for convenience

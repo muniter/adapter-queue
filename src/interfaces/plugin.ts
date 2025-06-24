@@ -17,10 +17,10 @@ export interface QueuePlugin {
    * Use this hook to initialize resources, connections, or state.
    * Return a cleanup function that will be called on shutdown.
    * 
-   * @param ctx - Context containing the queue instance and optional name
+   * @param ctx - Context containing the queue instance (queue.name is always available)
    * @returns Optional cleanup function
    */
-  init?(ctx: { queue: Queue; queueName?: string }): Promise<(() => Promise<void>) | void>;
+  init?(ctx: { queue: Queue }): Promise<(() => Promise<void>) | void>;
 
   /**
    * Called before each poll/reserve attempt.
@@ -73,14 +73,14 @@ export interface QueuePlugin {
  */
 export interface QueueOptions {
   /**
+   * Required name for the queue (used in plugin context and logging).
+   */
+  name: string;
+  
+  /**
    * Default time-to-run for jobs in seconds.
    */
   ttrDefault?: number;
-  
-  /**
-   * Optional name for the queue (used in plugin context).
-   */
-  name?: string;
   
   /**
    * Array of plugins to use with this queue.

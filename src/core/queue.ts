@@ -39,7 +39,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
   protected ttrDefault = 300;
   protected plugins: QueuePlugin[];
   protected pluginDisposers: Array<() => Promise<void>> = [];
-  public readonly name?: string;
+  public readonly name: string;
   
   /**
    * Registry of job handlers mapping job names to their handler functions.
@@ -62,14 +62,14 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * Creates a new Queue instance.
    * 
    * @param options - Configuration options
+   * @param options.name - Required name for the queue
    * @param options.ttrDefault - Default time-to-run for jobs in seconds (default: 300)
-   * @param options.name - Optional name for the queue
    * @param options.plugins - Array of plugins to use with this queue
    */
-  constructor(options: QueueOptions = {}) {
+  constructor(options: QueueOptions) {
     super();
-    if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
     this.name = options.name;
+    if (options.ttrDefault) this.ttrDefault = options.ttrDefault;
     this.plugins = options.plugins || [];
   }
 
@@ -235,7 +235,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
     if (this.pluginDisposers.length === 0) {
       for (const plugin of this.plugins) {
         if (plugin.init) {
-          const dispose = await plugin.init({ queue: this as any, queueName: this.name });
+          const dispose = await plugin.init({ queue: this as any });
           if (dispose) {
             this.pluginDisposers.push(dispose);
             disposers.push(dispose);

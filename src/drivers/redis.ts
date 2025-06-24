@@ -1,5 +1,6 @@
 import { Queue } from '../core/queue.ts';
 import type { JobStatus, JobMeta, QueueMessage, BaseJobRequest } from '../interfaces/job.ts';
+import type { QueueOptions } from '../interfaces/plugin.ts';
 
 // Interface for our internal Redis operations
 interface RedisOperations {
@@ -121,7 +122,7 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
   constructor(
     redisClient: any, // Accept any Redis client
     private queueName: string = 'default',
-    options: { ttrDefault?: number; keyPrefix?: string } = {}
+    options: QueueOptions & { keyPrefix?: string }
   ) {
     super(options);
     const prefix = options.keyPrefix || 'queue';

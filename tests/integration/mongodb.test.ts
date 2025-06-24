@@ -49,7 +49,7 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
     const db = client.db(testDatabase);
     await db.collection(testCollection).deleteMany({});
     
-    queue = createMongoQueue<TestJobs>(client, testDatabase, testCollection);
+    queue = createMongoQueue<TestJobs>('test-mongo-queue', client, testDatabase, testCollection);
   });
 
   afterEach(async () => {
@@ -82,12 +82,12 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
 
   describe('Convenience Factories', () => {
     it('should create queue with createMongoQueue factory', () => {
-      const factoryQueue = createMongoQueue<TestJobs>(client, testDatabase, 'factory_test');
+      const factoryQueue = createMongoQueue<TestJobs>('test-factory-queue', client, testDatabase, 'factory_test');
       expect(factoryQueue).toBeInstanceOf(MongoQueue);
     });
 
     it('should create queue with createMongoQueueFromUrl factory', async () => {
-      const factoryQueue = await createMongoQueueFromUrl<TestJobs>(mongoUrl, testDatabase, 'url_test');
+      const factoryQueue = await createMongoQueueFromUrl<TestJobs>('test-url-queue', mongoUrl, testDatabase, 'url_test');
       expect(factoryQueue).toBeInstanceOf(MongoQueue);
       
       // Wait for indexes to be created before closing the client
@@ -248,7 +248,7 @@ describe('MongoDB Integration Tests (with TestContainers)', () => {
       const id = await queue.addJob('simple-job', { payload: { data: 'persistent' } });
       
       // Create new queue instance with same collection
-      const queue2 = createMongoQueue<TestJobs>(client, testDatabase, testCollection);
+      const queue2 = createMongoQueue<TestJobs>('test-mongo-queue-2', client, testDatabase, testCollection);
       
       // Should be able to see the job
       const status = await queue2.status(id);

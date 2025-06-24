@@ -14,7 +14,7 @@ describe('Worker', () => {
 
   beforeEach(() => {
     dbAdapter = new TestDatabaseAdapter();
-    queue = new DbQueue<TestJobs>(dbAdapter);
+    queue = new DbQueue<TestJobs>(dbAdapter, { name: 'test-queue' });
   });
 
   describe('basic worker functionality', () => {

@@ -227,16 +227,16 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
 // Main export - constructor pattern
 export class SQLiteQueue<T = Record<string, any>> extends DbQueue<T> {
-  constructor(config: { database: SQLiteDatabase }) {
+  constructor(config: { database: SQLiteDatabase; name: string }) {
     const adapter = new SQLiteDatabaseAdapter(config.database);
-    super(adapter);
+    super(adapter, { name: config.name });
   }
 }
 
 // Convenience factory for better-sqlite3
-export function createSQLiteQueue<T = Record<string, any>>(filename: string, options?: Database.Options): SQLiteQueue<T> {
+export function createSQLiteQueue<T = Record<string, any>>(name: string, filename: string, options?: Database.Options): SQLiteQueue<T> {
   const db = new Database(filename, options);
-  return new SQLiteQueue<T>({ database: db });
+  return new SQLiteQueue<T>({ database: db, name });
 }
 
 // Re-export for convenience

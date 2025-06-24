@@ -6,7 +6,7 @@ interface EmailJobs {
 }
 
 // Create Redis queue with simple API
-export const emailQueue = createRedisQueue<EmailJobs>('redis://localhost:6379');
+export const emailQueue = createRedisQueue<EmailJobs>('redis-email-queue', 'redis://localhost:6379');
 
 // Register job handlers
 emailQueue.setHandlers({

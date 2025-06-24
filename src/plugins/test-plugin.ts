@@ -29,9 +29,9 @@ export function createTestPlugin(): { plugin: QueuePlugin; state: TestPluginStat
   };
 
   const plugin: QueuePlugin = {
-    async init({ queue, queueName }) {
+    async init({ queue }) {
       state.initialized = true;
-      state.queueName = queueName || queue.name;
+      state.queueName = queue.name;
       
       // Return cleanup function
       return async () => {

@@ -28,11 +28,11 @@ describe('DbQueue with Real SQLite Adapter', () => {
     // Setup real SQLite adapter
     db = new Database(testDbPath);
     realAdapter = new SQLiteDatabaseAdapter(db);
-    realQueue = new DbQueue<TestJobs>(realAdapter);
+    realQueue = new DbQueue<TestJobs>(realAdapter, { name: 'test-real-queue' });
     
     // Setup mock adapter for comparison
     mockAdapter = new TestDatabaseAdapter();
-    mockQueue = new DbQueue<TestJobs>(mockAdapter);
+    mockQueue = new DbQueue<TestJobs>(mockAdapter, { name: 'test-mock-queue' });
   });
 
   afterEach(() => {

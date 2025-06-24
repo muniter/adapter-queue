@@ -8,15 +8,15 @@ interface EmailJobs {
 
 // File-based queue (for local development)
 export const emailQueueFile = new FileQueue<EmailJobs>({
+  name: "email-queue",
   path: "./email-queue",
 });
 
 // SQS-based queue (for production) - simple API
 export const emailQueueSqs = createSQSQueue<EmailJobs>(
+  "email-queue",
   "https://sqs.us-east-1.amazonaws.com/428011609647/test-queue",
-  {
-    profile: "javier",
-  }
+  "delete"
 );
 
 export const emailQueue = emailQueueSqs;

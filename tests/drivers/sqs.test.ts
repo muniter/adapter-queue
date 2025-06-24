@@ -14,7 +14,7 @@ describe('SqsQueue', () => {
 
   beforeEach(() => {
     sqsClient = new TestSQSClient();
-    queue = new SqsQueue<TestJobs>(sqsClient, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue');
+    queue = new SqsQueue<TestJobs>(sqsClient, 'https://sqs.us-east-1.amazonaws.com/123456789/test-queue', { name: 'test-queue', onFailure: 'delete' });
   });
 
   describe('addJob and reserve cycle', () => {
@@ -106,7 +106,7 @@ describe('SqsQueue', () => {
       const leaveInQueueQueue = new SqsQueue<TestJobs>(
         newSqsClient, 
         'https://sqs.us-east-1.amazonaws.com/123456789/test-queue',
-        { onFailure: 'leaveInQueue' }
+        { name: 'test-queue', onFailure: 'leaveInQueue' }
       );
       
       await leaveInQueueQueue.addJob('test-job', { payload: { data: 'test' } });

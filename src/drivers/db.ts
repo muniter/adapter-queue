@@ -6,7 +6,7 @@ import type { QueueOptions } from '../interfaces/plugin.ts';
 export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJobRequest<any>> {
   constructor(
     private db: DatabaseAdapter,
-    options: QueueOptions = {}
+    options: QueueOptions
   ) {
     super(options);
   }

@@ -57,6 +57,7 @@ describe('Plugin Lifecycle', () => {
       const { plugin, state } = createTestPlugin();
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin],
       });
@@ -79,6 +80,7 @@ describe('Plugin Lifecycle', () => {
       };
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin],
       });
@@ -98,6 +100,7 @@ describe('Plugin Lifecycle', () => {
       const { plugin, state } = createTestPlugin();
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin],
       });
@@ -118,6 +121,7 @@ describe('Plugin Lifecycle', () => {
       const { plugin: testPlugin, state: testState } = createTestPlugin();
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [stopPlugin, testPlugin],
       });
@@ -140,6 +144,7 @@ describe('Plugin Lifecycle', () => {
       const { plugin, state } = createTestPlugin();
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin],
       });
@@ -170,6 +175,7 @@ describe('Plugin Lifecycle', () => {
       const { plugin, state } = createTestPlugin();
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin],
       });
@@ -202,6 +208,7 @@ describe('Plugin Lifecycle', () => {
       let processedJob: any;
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [enrichmentPlugin],
       });
@@ -251,6 +258,7 @@ describe('Plugin Lifecycle', () => {
       };
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [plugin1, plugin2],
       });
@@ -284,6 +292,7 @@ describe('Plugin Lifecycle', () => {
       };
       
       queue = new FileQueue<TestJobs>({
+        name: 'test-queue',
         path: queuePath,
         plugins: [errorPlugin],
       });

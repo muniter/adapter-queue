@@ -73,7 +73,7 @@ describe('SQS Integration Tests (LocalStack)', () => {
     }
     
     // Create fresh queue instance using SQSClient directly
-    queue = new SqsQueue<TestJobs>(sqsClient, queueUrl);
+    queue = new SqsQueue<TestJobs>(sqsClient, queueUrl, { name: 'test-sqs-queue', onFailure: 'delete' });
   });
 
   describe('Real SQS Operations', () => {

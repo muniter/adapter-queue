@@ -84,7 +84,7 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    queue = new SqsQueue(config.sqsClient, config.queueUrl);
+    queue = new SqsQueue(config.sqsClient, config.queueUrl, { name: 'cli-queue', onFailure: 'delete' });
   } else {
     if (!config.dbAdapter) {
       console.error('Error: Database adapter must be provided when using DB driver');
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    queue = new DbQueue(config.dbAdapter);
+    queue = new DbQueue(config.dbAdapter, { name: 'cli-queue' });
   }
 
   const worker = new Worker(queue, {

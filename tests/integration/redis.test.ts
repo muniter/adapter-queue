@@ -45,6 +45,7 @@ describe('Redis Integration Tests (with TestContainers)', () => {
     await client.flushDb();
     
     queue = new RedisQueue<TestJobs>({ 
+      name: 'test-redis-queue',
       client,
       keyPrefix: testKeyPrefix 
     });
@@ -73,7 +74,7 @@ describe('Redis Integration Tests (with TestContainers)', () => {
 
   describe('Convenience Factory', () => {
     it('should create queue with factory function', async () => {
-      const factoryQueue = createRedisQueue<TestJobs>(redisUrl);
+      const factoryQueue = createRedisQueue<TestJobs>('test-factory-queue', redisUrl);
       expect(factoryQueue).toBeInstanceOf(RedisQueue);
       
       // Clean up - the factory creates its own client
@@ -234,6 +235,7 @@ describe('Redis Integration Tests (with TestContainers)', () => {
       
       // Create new queue instance with same client and prefix
       const queue2 = new RedisQueue<TestJobs>({ 
+        name: 'test-redis-queue-2',
         client,
         keyPrefix: testKeyPrefix 
       });

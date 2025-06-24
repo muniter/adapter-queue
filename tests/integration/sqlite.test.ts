@@ -22,7 +22,7 @@ describe('SQLite Integration Tests', () => {
     } catch {}
     
     db = new Database(testDbPath);
-    queue = new SQLiteQueue<TestJobs>({ database: db });
+    queue = new SQLiteQueue<TestJobs>({ name: 'test-sqlite-queue', database: db });
   });
 
   afterEach(() => {
@@ -45,7 +45,7 @@ describe('SQLite Integration Tests', () => {
 
   describe('Convenience Factory', () => {
     it('should create queue with factory function', () => {
-      const factoryQueue = createSQLiteQueue<TestJobs>('./test-factory.db');
+      const factoryQueue = createSQLiteQueue<TestJobs>('test-factory-queue', './test-factory.db');
       expect(factoryQueue).toBeInstanceOf(SQLiteQueue);
       
       // Clean up by closing the underlying database connection  
@@ -205,7 +205,7 @@ describe('SQLite Integration Tests', () => {
       
       // Create new queue instance with same database
       const db2 = new Database(testDbPath);
-      const queue2 = new SQLiteQueue<TestJobs>({ database: db2 });
+      const queue2 = new SQLiteQueue<TestJobs>({ name: 'test-sqlite-queue-2', database: db2 });
       
       // Should be able to see the job
       const status = await queue2.status(id);
