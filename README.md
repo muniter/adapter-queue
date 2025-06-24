@@ -337,6 +337,141 @@ interface JobMap {
 // Handlers are registered with queue.setHandlers()
 ```
 
+## Plugins
+
+The queue system supports plugins to extend functionality. Plugins can hook into the queue lifecycle to add features like task protection, metrics collection, distributed tracing, and more.
+
+### ECS Task Protection Plugin
+
+Prevents job loss during ECS container termination by automatically acquiring and releasing [ECS Task Protection](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-scale-in-protection.html) based on job activity.
+
+**Why ECS Task Protection?**
+
+In ECS environments, containers can be terminated during:
+- Auto-scaling scale-in events
+- Rolling deployments 
+- Spot instance interruptions
+- Manual task stopping
+
+Without protection, in-flight jobs are lost when the container terminates. [ECS Task Protection](https://aws.amazon.com/blogs/containers/deep-dive-on-amazon-ecs-cluster-auto-scaling/) prevents this by marking tasks as "protected" from termination while they're processing jobs.
+
+**How this plugin helps:**
+- **Automatic**: No manual protection management - activated only when needed
+- **Efficient**: Protection is acquired when jobs start, released when idle
+- **Safe**: Detects ECS draining and gracefully stops accepting new work
+- **Reliable**: Auto-renews protection for long-running jobs
+
+```bash
+pnpm add @muniter/queue
+```
+
+```typescript
+import { SQSQueue } from '@muniter/queue/sqs';
+import { SQSClient } from '@aws-sdk/client-sqs';
+import { EcsProtectionManager, ecsTaskProtection } from '@muniter/queue/plugins/ecs-protection-manager';
+
+// Create protection manager (share across all queues in your app)
+const protectionManager = new EcsProtectionManager();
+
+const queue = new SQSQueue({
+  client: new SQSClient({ region: 'us-east-1' }),
+  queueUrl: process.env.SQS_QUEUE_URL!,
+  name: 'email-queue',
+  onFailure: 'delete', // or 'leaveInQueue'
+  plugins: [ecsTaskProtection(protectionManager)]
+});
+
+await queue.run(true, 3);
+
+// Clean up when shutting down
+await protectionManager.cleanup();
+```
+
+**Features:**
+- **Automatic Protection**: Acquires ECS task protection when jobs are active, releases when idle
+- **Draining Detection**: Detects when ECS is draining and gracefully stops accepting new jobs  
+- **Auto-Renewal**: Refreshes protection before expiration for long-running jobs
+- **Zero Dependencies**: Uses built-in Node.js `fetch` API
+- **Configurable Logging**: Integrate with your existing logging system
+
+**Custom Logger Example:**
+```typescript
+import pino from 'pino';
+
+const logger = pino();
+const protectionManager = new EcsProtectionManager({
+  logger: {
+    log: (message) => logger.info(message),
+    warn: (message) => logger.warn(message),
+    error: (message, error) => logger.error({ error }, message)
+  }
+});
+```
+
+**Multiple Queues:**
+```typescript
+// Use the same protection manager across all queues
+const protectionManager = new EcsProtectionManager();
+
+const emailQueue = new SQSQueue({
+  client: new SQSClient({ region: 'us-east-1' }),
+  queueUrl: process.env.EMAIL_QUEUE_URL!,
+  name: 'email-queue',
+  onFailure: 'delete',
+  plugins: [ecsTaskProtection(protectionManager)]
+});
+
+const imageQueue = new SQSQueue({
+  client: new SQSClient({ region: 'us-east-1' }),
+  queueUrl: process.env.IMAGE_QUEUE_URL!,
+  name: 'image-queue',
+  onFailure: 'delete',
+  plugins: [ecsTaskProtection(protectionManager)] // Same instance
+});
+
+// Both queues coordinate protection through the shared manager
+await Promise.all([
+  emailQueue.run(true),
+  imageQueue.run(true)
+]);
+```
+
+**⚠️ Important**: Only create **one** EcsProtectionManager instance per application/container. Multiple instances will conflict and break protection coordination.
+
+### Plugin Development
+
+Plugins implement the `QueuePlugin` interface and can hook into these lifecycle events:
+
+- `init?()` - Called once when queue starts, return cleanup function
+- `beforePoll?()` - Called before polling for jobs, can return 'stop' to gracefully shut down
+- `beforeJob?()` - Called after job is reserved but before execution
+- `afterJob?()` - Called after job completion (success or failure)
+
+```typescript
+import { QueuePlugin } from '@muniter/queue';
+
+function customPlugin(): QueuePlugin {
+  return {
+    async init({ queue }) {
+      console.log(`Plugin initialized for queue: ${queue.name}`);
+      return async () => console.log('Plugin cleanup');
+    },
+    
+    async beforeJob(job) {
+      console.log(`Starting job ${job.id}`);
+    },
+    
+    async afterJob(job, error) {
+      if (error) {
+        console.error(`Job ${job.id} failed:`, error);
+      } else {
+        console.log(`Job ${job.id} completed`);
+      }
+    }
+  };
+}
+```
+
 ## Testing
 
 Run the test suite:

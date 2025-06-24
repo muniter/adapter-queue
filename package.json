@@ -49,24 +49,28 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
     },
     "./sqlite": {
-      "import": "./dist/adapters/sqlite.js",
-      "types": "./dist/adapters/sqlite.d.ts"
+      "import": "./dist/src/adapters/sqlite.js",
+      "types": "./dist/src/adapters/sqlite.d.ts"
     },
     "./redis": {
-      "import": "./dist/adapters/redis.js",
-      "types": "./dist/adapters/redis.d.ts"
+      "import": "./dist/src/adapters/redis.js",
+      "types": "./dist/src/adapters/redis.d.ts"
     },
     "./sqs": {
-      "import": "./dist/adapters/sqs.js",
-      "types": "./dist/adapters/sqs.d.ts"
+      "import": "./dist/src/adapters/sqs.js",
+      "types": "./dist/src/adapters/sqs.d.ts"
     },
     "./mongodb": {
-      "import": "./dist/adapters/mongodb.js",
-      "types": "./dist/adapters/mongodb.d.ts"
+      "import": "./dist/src/adapters/mongodb.js",
+      "types": "./dist/src/adapters/mongodb.d.ts"
+    },
+    "./plugins/ecs-protection-manager": {
+      "import": "./dist/src/plugins/ecs-protection-manager.js",
+      "types": "./dist/src/plugins/ecs-protection-manager.d.ts"
     }
   },
   "peerDependencies": {
