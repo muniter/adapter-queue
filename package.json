@@ -71,6 +71,10 @@
     "./plugins/ecs-protection-manager": {
       "import": "./dist/src/plugins/ecs-protection-manager.js",
       "types": "./dist/src/plugins/ecs-protection-manager.d.ts"
+    },
+    "./memory": {
+      "import": "./dist/src/adapters/memory.js",
+      "types": "./dist/src/adapters/memory.d.ts"
     }
   },
   "peerDependencies": {

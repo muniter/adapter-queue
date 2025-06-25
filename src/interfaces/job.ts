@@ -83,6 +83,12 @@ export interface FileJobOptions extends BaseJobOptions {
   // Priority ordering is not implemented in current FileQueue
 }
 
+export interface InMemoryJobOptions extends BaseJobOptions {
+  delay?: number;
+  priority?: number;
+  // InMemory queue supports both delay and priority
+}
+
 // Combined interfaces that include payload for the new API
 export interface BaseJobRequest<TPayload> extends BaseJobOptions {
   payload: TPayload;
@@ -97,6 +103,10 @@ export interface SqsJobRequest<TPayload> extends SqsJobOptions {
 }
 
 export interface FileJobRequest<TPayload> extends FileJobOptions {
+  payload: TPayload;
+}
+
+export interface InMemoryJobRequest<TPayload> extends InMemoryJobOptions {
   payload: TPayload;
 }
 

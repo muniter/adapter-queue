@@ -1,6 +1,7 @@
 export { Queue } from './core/queue.ts';
 export { DbQueue } from './drivers/db.ts';
 export { FileQueue } from './drivers/file.ts';
+export { InMemoryQueue } from './drivers/memory.ts';
 export { Worker, runWorker } from './worker/worker.ts';
 
 export type { 
@@ -9,7 +10,17 @@ export type {
   QueueMessage, 
   QueueEvent,
   JobData,
-  JobOptions
+  JobOptions,
+  BaseJobRequest,
+  BaseJobOptions,
+  DbJobRequest,
+  DbJobOptions,
+  SqsJobRequest,
+  SqsJobOptions,
+  FileJobRequest,
+  FileJobOptions,
+  InMemoryJobRequest,
+  InMemoryJobOptions
 } from './interfaces/job.ts';
 
 export type {
