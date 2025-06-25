@@ -378,7 +378,10 @@ const queue = new SQSQueue({
   queueUrl: process.env.SQS_QUEUE_URL!,
   name: 'email-queue',
   onFailure: 'delete', // or 'leaveInQueue'
-  plugins: [ecsTaskProtection(protectionManager)]
+  plugins: [ecsTaskProtection({ 
+    manager: protectionManager,
+    defaultProtectionTimeout: 600 // 10 minutes default
+  })]
 });
 
 await queue.run(true, 3);
@@ -388,9 +391,10 @@ await protectionManager.cleanup();
 ```
 
 **Features:**
-- **Automatic Protection**: Acquires ECS task protection when jobs are active, releases when idle
-- **Draining Detection**: Detects when ECS is draining and gracefully stops accepting new jobs  
-- **Auto-Renewal**: Refreshes protection before expiration for long-running jobs
+- **Smart Protection Management**: Acquires protection before polling, maintains it while jobs are active
+- **Reference Counting**: Tracks active jobs per queue, only releases protection when all jobs complete
+- **TTR-Aware**: Automatically extends protection for long-running jobs based on their TTR
+- **Draining Detection**: Detects when ECS is draining and gracefully stops accepting new jobs
 - **Zero Dependencies**: Uses built-in Node.js `fetch` API
 - **Configurable Logging**: Integrate with your existing logging system
 
@@ -418,7 +422,7 @@ const emailQueue = new SQSQueue({
   queueUrl: process.env.EMAIL_QUEUE_URL!,
   name: 'email-queue',
   onFailure: 'delete',
-  plugins: [ecsTaskProtection(protectionManager)]
+  plugins: [ecsTaskProtection({ manager: protectionManager })]
 });
 
 const imageQueue = new SQSQueue({
@@ -426,7 +430,7 @@ const imageQueue = new SQSQueue({
   queueUrl: process.env.IMAGE_QUEUE_URL!,
   name: 'image-queue',
   onFailure: 'delete',
-  plugins: [ecsTaskProtection(protectionManager)] // Same instance
+  plugins: [ecsTaskProtection({ manager: protectionManager })] // Same manager, different plugin instance
 });
 
 // Both queues coordinate protection through the shared manager
