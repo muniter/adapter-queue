@@ -22,7 +22,16 @@ export {
   defineJobType 
 } from './utils/job-assembly.ts';
 
-// Queue registry for circular dependency avoidance
+// Queue factory utilities for eliminating circular dependencies
+export {
+  createQueueFactory,
+  createLazyQueueFactory,
+  createMultiQueueFactory,
+  createQueueWithJobs,
+  createQueueFactoryWithWarnings
+} from './utils/queue-factory.ts';
+
+// Queue registry for circular dependency avoidance (legacy approach)
 export {
   QueueRegistry,
   setQueue,
