@@ -20,7 +20,10 @@ export type {
   FileJobRequest,
   FileJobOptions,
   InMemoryJobRequest,
-  InMemoryJobOptions
+  InMemoryJobOptions,
+  QueueArgs,
+  QueueHandler,
+  JobPayload
 } from './interfaces/job.ts';
 
 export type {

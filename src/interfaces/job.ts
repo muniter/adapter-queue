@@ -22,6 +22,20 @@ export interface JobContext<T> {
 }
 
 /**
+ * Convenient type alias for job handler arguments.
+ * Use this when defining handlers throughout your application.
+ * 
+ * @example
+ * ```typescript
+ * const emailHandler = async (args: QueueArgs<EmailPayload>) => {
+ *   const { id, payload, meta } = args;
+ *   // Process email...
+ * };
+ * ```
+ */
+export type QueueArgs<T> = JobContext<T>;
+
+/**
  * Type for a single job handler function.
  */
 export type JobHandler<T> = (job: JobContext<T>, queue: any) => Promise<void> | void;
@@ -33,6 +47,36 @@ export type JobHandler<T> = (job: JobContext<T>, queue: any) => Promise<void> | 
 export type JobHandlers<TJobMap> = {
   [K in keyof TJobMap]: JobHandler<TJobMap[K]>;
 }
+
+/**
+ * Type for a standalone job handler function that can be defined anywhere.
+ * Use this for handlers that will be registered separately from their definition.
+ * 
+ * @example
+ * ```typescript
+ * const emailHandler: QueueHandler<EmailPayload> = async (args, queue) => {
+ *   const { id, payload } = args;
+ *   await sendEmail(payload.to, payload.subject, payload.body);
+ * };
+ * ```
+ */
+export type QueueHandler<T> = JobHandler<T>;
+
+/**
+ * Type for extracting the payload type from a job map for a specific job name.
+ * Useful when you need to reference the payload type for a specific job.
+ * 
+ * @example
+ * ```typescript
+ * interface MyJobs {
+ *   'send-email': { to: string; subject: string };
+ *   'process-image': { url: string; width: number };
+ * }
+ * 
+ * type EmailPayload = JobPayload<MyJobs, 'send-email'>; // { to: string; subject: string }
+ * ```
+ */
+export type JobPayload<TJobMap, K extends keyof TJobMap> = TJobMap[K];
 
 export interface QueueMessage {
   id: string;

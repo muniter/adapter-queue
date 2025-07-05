@@ -1,5 +1,6 @@
 import { FileQueue } from "adapter-queue";
 import { createSQSQueue } from "adapter-queue/sqs";
+import type { QueueArgs, QueueHandler, JobPayload } from "adapter-queue";
 
 interface EmailJobs {
   "welcome-email": { to: string; name: string };
@@ -21,31 +22,45 @@ export const emailQueueSqs = createSQSQueue<EmailJobs>(
 
 export const emailQueue = emailQueueSqs;
 
+// Example: Define handlers using the new types for better DX
+const welcomeEmailHandler = async (args: QueueArgs<JobPayload<EmailJobs, "welcome-email">>) => {
+  const { id, payload, meta } = args;
+  const { to, name } = payload;
+  
+  console.log(`Sending welcome email to ${to} (${name})`);
+  console.log(`Job ${id} was created at: ${meta.pushedAt}`);
+  
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  if (Math.random() > 0.8) {
+    throw new Error("Email service temporarily unavailable");
+  }
+
+  console.log(`Welcome email sent successfully to ${to}`);
+};
+
+const notificationHandler: QueueHandler<JobPayload<EmailJobs, "notification">> = async (args, queue) => {
+  const { payload } = args;
+  const { to, subject, body } = payload;
+  
+  console.log(`Sending notification email to ${to}: ${subject}`);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  
+  // Example: Using the queue parameter to add follow-up jobs
+  queue.addJob("welcome-email", {
+    payload: {
+      to: "javier@muniter.com",
+      name: "Javier",
+    },
+  });
+  
+  console.log(`Notification sent successfully`);
+};
+
 // Register job handlers for email queue
 emailQueue.setHandlers({
-  "welcome-email": async ({ payload }) => {
-    const { to, name } = payload;
-    console.log(`Sending welcome email to ${to} (${name})`);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (Math.random() > 0.8) {
-      throw new Error("Email service temporarily unavailable");
-    }
-
-    console.log(`Welcome email sent successfully to ${to}`);
-  },
-  "notification": async ({ payload }, queue) => {
-    const { to, subject, body } = payload;
-    console.log(`Sending notification email to ${to}: ${subject}`);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    queue.addJob("welcome-email", {
-      payload: {
-        to: "javier@muniter.com",
-        name: "Javier",
-      },
-    });
-    console.log(`Notification sent successfully`);
-  }
+  "welcome-email": welcomeEmailHandler,
+  "notification": notificationHandler,
 });
 
 emailQueue.on("beforeExec", (event) => {
