@@ -1,129 +1,122 @@
-import type { JobModule, JobModulesToMap, JobModulesToHandlers } from '../interfaces/job.ts';
+import type { JobDefinition, JobDefinitionsToMap, JobDefinitionsToHandlers } from '../interfaces/job.ts';
 
 /**
- * Assembles an array of job modules into a handlers object for queue registration.
- * This function extracts all handlers from job modules and creates a handlers object
- * that can be passed to queue.setHandlers().
+ * Assembles an array of job definitions into a handlers object for queue registration.
+ * This is the main function you'll use to combine your job definitions.
  * 
- * @param modules - Array of job modules to assemble
+ * @param jobs - Array of job definitions to assemble
  * @returns Object mapping job names to their handlers
  * 
  * @example
  * ```typescript
- * import { assembleHandlers } from 'adapter-queue/utils';
+ * import { assembleJobs } from 'adapter-queue';
  * 
- * const handlers = assembleHandlers([emailJob, imageJob, reportJob]);
+ * const handlers = assembleJobs([welcomeEmailJob, notificationJob, imageJob]);
  * queue.setHandlers(handlers);
  * ```
  */
-export function assembleHandlers<T extends readonly JobModule<any, any>[]>(
-  modules: T
-): JobModulesToHandlers<T> {
+export function assembleJobs<T extends readonly JobDefinition<any>[]>(
+  jobs: T
+): JobDefinitionsToHandlers<T> {
   const handlers = {} as any;
   
-  for (const module of modules) {
-    handlers[module.name] = module.handler;
+  for (const job of jobs) {
+    handlers[job.name] = job.handler;
   }
   
   return handlers;
 }
 
 /**
- * Creates a type-safe queue instance with job modules.
- * This function combines job modules and returns both the job map type and assembled handlers.
+ * Legacy function for backward compatibility.
+ * Use `assembleJobs` instead.
+ */
+export function assembleHandlers<T extends readonly JobDefinition<any>[]>(
+  jobs: T
+): JobDefinitionsToHandlers<T> {
+  return assembleJobs(jobs);
+}
+
+/**
+ * Creates a type-safe queue setup with job definitions.
+ * This function provides both the assembled handlers and type information.
  * 
- * @param modules - Array of job modules to assemble
- * @returns Object containing the assembled handlers and a type helper
+ * @param jobs - Array of job definitions to assemble
+ * @returns Object containing the assembled handlers and type utilities
  * 
  * @example
  * ```typescript
- * import { createQueueWithModules } from 'adapter-queue/utils';
+ * import { createQueueSetup } from 'adapter-queue';
  * 
- * const { handlers, createQueue } = createQueueWithModules([emailJob, imageJob]);
+ * const { handlers, JobMap } = createQueueSetup([welcomeEmailJob, notificationJob]);
  * 
  * // Create queue with inferred type
- * const queue = createQueue(new FileQueue({ name: 'my-queue', path: './queue' }));
+ * const queue = new FileQueue<typeof JobMap>({ name: 'my-queue', path: './queue' });
  * 
  * // Register handlers
  * queue.setHandlers(handlers);
  * ```
  */
-export function createQueueWithModules<T extends readonly JobModule<any, any>[]>(
-  modules: T
+export function createQueueSetup<T extends readonly JobDefinition<any>[]>(
+  jobs: T
 ) {
-  const handlers = assembleHandlers(modules);
+  const handlers = assembleJobs(jobs);
   
   return {
     handlers,
-    createQueue: <Q extends { setHandlers(handlers: JobModulesToHandlers<T>): void }>(queue: Q) => {
-      return queue as Q & { _jobMap: JobModulesToMap<T> };
+    // Type helper for the job map
+    JobMap: {} as JobDefinitionsToMap<T>
+  };
+}
+
+/**
+ * Legacy function for backward compatibility.
+ * Use `createQueueSetup` instead.
+ */
+export function createQueueWithModules<T extends readonly JobDefinition<any>[]>(
+  jobs: T
+) {
+  const setup = createQueueSetup(jobs);
+  
+  return {
+    handlers: setup.handlers,
+    createQueue: <Q extends { setHandlers(handlers: JobDefinitionsToHandlers<T>): void }>(queue: Q) => {
+      return queue as Q & { _jobMap: JobDefinitionsToMap<T> };
     }
   };
 }
 
 /**
- * Utility function to define a job module with better type inference.
- * This version uses a more sophisticated approach to infer the payload type from the handler.
+ * Utility function to help TypeScript infer the job definition type.
+ * This is optional but can help with better type inference.
  * 
- * @param name - The job name
- * @param handler - The job handler function
- * @returns A properly typed job module
+ * @param job - The job definition object
+ * @returns The same job definition with better type inference
  * 
  * @example
  * ```typescript
- * import { defineJob } from 'adapter-queue/utils';
+ * import { defineJob } from 'adapter-queue';
  * 
- * export const emailJob = defineJob('send-email', async (args, queue) => {
- *   const { payload } = args;
- *   // TypeScript will infer payload type from your destructuring
- *   const { to, subject, body } = payload;
- *   await sendEmail(to, subject, body);
+ * export const emailJob = defineJob({
+ *   name: "send-email",
+ *   handler: async (args) => {
+ *     const { payload } = args; // TypeScript infers the type from usage
+ *     await sendEmail(payload.to, payload.subject, payload.body);
+ *   }
  * });
  * ```
  */
-export function defineJob<
-  TName extends string,
-  THandler extends (args: any, queue: any) => Promise<void> | void
->(
-  name: TName,
-  handler: THandler
-): JobModule<TName, THandler extends (args: infer Args, queue: any) => any 
-  ? Args extends { payload: infer P } 
-    ? P 
-    : unknown 
-  : unknown> {
-  return {
-    name,
-    handler: handler as any
-  };
+export function defineJob<T extends JobDefinition<any>>(job: T): T {
+  return job;
 }
 
 /**
- * Alternative defineJob that requires explicit payload type.
- * Use this when you want to be explicit about the payload type.
- * 
- * @param name - The job name
- * @param handler - The job handler function
- * @returns A properly typed job module
- * 
- * @example
- * ```typescript
- * import { defineJobWithPayload } from 'adapter-queue/utils';
- * 
- * export const emailJob = defineJobWithPayload('send-email', async (args: QueueArgs<{
- *   to: string;
- *   subject: string;
- *   body: string;
- * }>, queue) => {
- *   const { payload } = args;
- *   await sendEmail(payload.to, payload.subject, payload.body);
- * });
- * ```
+ * Legacy function - use the new JobDefinition type instead.
  */
 export function defineJobWithPayload<TName extends string, TPayload>(
   name: TName,
   handler: (args: import('../interfaces/job.ts').QueueArgs<TPayload>, queue: any) => Promise<void> | void
-): JobModule<TName, TPayload> {
+): JobDefinition<TPayload> {
   return {
     name,
     handler
@@ -131,20 +124,8 @@ export function defineJobWithPayload<TName extends string, TPayload>(
 }
 
 /**
- * Utility function to create a job definition type.
- * This is purely for type-level work and doesn't produce runtime values.
- * 
- * @example
- * ```typescript
- * import { defineJobType } from 'adapter-queue/utils';
- * 
- * export type EmailJob = ReturnType<typeof defineJobType<'send-email', {
- *   to: string;
- *   subject: string;
- *   body: string;
- * }>>;
- * ```
+ * Legacy function - use the new JobDefinition type instead.
  */
-export function defineJobType<TName extends string, TPayload>(): import('../interfaces/job.ts').JobDefinition<TName, TPayload> {
-  return {} as any; // This function is only for type-level work
+export function defineJobType<TName extends string, TPayload>(): import('../interfaces/job.ts').JobDefinitionComplex<TName, TPayload> {
+  return {} as any;
 }

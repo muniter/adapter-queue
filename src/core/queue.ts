@@ -1,9 +1,17 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest, JobContext, JobHandlers, QueueArgs, QueueHandler, JobPayload, JobDefinition, JobDefinitionHandler, JobModule, JobModulesToMap, JobModulesToHandlers } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest, JobContext, JobHandlers, QueueArgs, QueueHandler, JobPayload, JobDefinition, JobDefinitionPayload, JobDefinitionsToMap, JobDefinitionsToHandlers } from '../interfaces/job.ts';
 import type { QueuePlugin, QueueOptions } from '../interfaces/plugin.ts';
 
 // Re-export convenience types for easy access
-export type { QueueArgs, QueueHandler, JobPayload, JobDefinition, JobDefinitionHandler, JobModule, JobModulesToMap, JobModulesToHandlers } from '../interfaces/job.ts';
+export type { 
+  QueueArgs, 
+  QueueHandler, 
+  JobPayload, 
+  JobDefinition, 
+  JobDefinitionPayload, 
+  JobDefinitionsToMap, 
+  JobDefinitionsToHandlers 
+} from '../interfaces/job.ts';
 
 /**
  * Abstract queue class providing event-based job processing.

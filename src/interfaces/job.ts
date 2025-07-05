@@ -79,95 +79,92 @@ export type QueueHandler<T> = JobHandler<T>;
 export type JobPayload<TJobMap, K extends keyof TJobMap> = TJobMap[K];
 
 /**
- * Define an individual job type with its payload.
- * Use this when defining jobs in isolation throughout your application.
+ * Simple job definition type for defining individual jobs with full type safety.
+ * This is the recommended way to define jobs throughout your application.
  * 
  * @example
  * ```typescript
- * export type WelcomeEmailJob = JobDefinition<'welcome-email', {
+ * const welcomeEmailJob: JobDefinition<{
  *   to: string;
  *   name: string;
- * }>;
- * ```
- */
-export type JobDefinition<TName extends string, TPayload> = {
-  name: TName;
-  payload: TPayload;
-};
-
-/**
- * Extract the name from a job definition.
- */
-export type JobName<T extends JobDefinition<any, any>> = T['name'];
-
-/**
- * Extract the payload from a job definition.
- */
-export type JobPayloadType<T extends JobDefinition<any, any>> = T['payload'];
-
-/**
- * Type for a handler that works with a specific job definition.
- * This allows you to define handlers for individual jobs without needing the full job map.
- * 
- * @example
- * ```typescript
- * type WelcomeEmailJob = JobDefinition<'welcome-email', { to: string; name: string }>;
- * 
- * const welcomeEmailHandler: JobDefinitionHandler<WelcomeEmailJob> = async (args, queue) => {
- *   const { payload } = args; // Typed as { to: string; name: string }
- *   await sendEmail(payload.to, payload.name);
- * };
- * ```
- */
-export type JobDefinitionHandler<T extends JobDefinition<any, any>> = QueueHandler<JobPayloadType<T>>;
-
-/**
- * A complete job module that includes both the job definition and its handler.
- * Use this pattern to define jobs and handlers together in individual modules.
- * 
- * @example
- * ```typescript
- * export const welcomeEmailJob: JobModule<'welcome-email', { to: string; name: string }> = {
- *   name: 'welcome-email',
- *   handler: async (args, queue) => {
- *     const { payload } = args;
- *     await sendEmail(payload.to, payload.name);
+ * }> = {
+ *   name: "welcome-email",
+ *   handler: async (args) => {
+ *     const { payload } = args; // Fully typed as { to: string; name: string }
+ *     await sendWelcomeEmail(payload.to, payload.name);
  *   }
  * };
  * ```
  */
+export interface JobDefinition<TPayload> {
+  name: string;
+  handler: (args: QueueArgs<TPayload>, queue?: any) => Promise<void> | void;
+}
+
+/**
+ * Extract the payload type from a job definition.
+ */
+export type JobDefinitionPayload<T extends JobDefinition<any>> = T extends JobDefinition<infer P> ? P : never;
+
+/**
+ * Extract the job name from a job definition.
+ */
+export type JobDefinitionName<T extends JobDefinition<any>> = T['name'];
+
+/**
+ * Convert a job definition to a job map entry.
+ */
+export type JobDefinitionToMapEntry<T extends JobDefinition<any>> = {
+  [K in JobDefinitionName<T>]: JobDefinitionPayload<T>;
+};
+
+/**
+ * Convert an array of job definitions to a complete job map.
+ * 
+ * @example
+ * ```typescript
+ * const jobs = [welcomeEmailJob, notificationJob, imageJob] as const;
+ * type MyJobMap = JobDefinitionsToMap<typeof jobs>;
+ * // Results in: { 'welcome-email': EmailPayload; 'notification': NotificationPayload; 'process-image': ImagePayload }
+ * ```
+ */
+export type JobDefinitionsToMap<T extends readonly JobDefinition<any>[]> = {
+  [K in T[number]['name']]: T[number] extends JobDefinition<infer P> 
+    ? T[number]['name'] extends K 
+      ? P 
+      : never 
+    : never;
+};
+
+/**
+ * Convert an array of job definitions to handlers object.
+ */
+export type JobDefinitionsToHandlers<T extends readonly JobDefinition<any>[]> = {
+  [K in T[number]['name']]: T[number] extends JobDefinition<infer P>
+    ? T[number]['name'] extends K
+      ? JobHandler<P>
+      : never
+    : never;
+};
+
+// Legacy types for backward compatibility
+export type JobDefinitionComplex<TName extends string, TPayload> = {
+  name: TName;
+  payload: TPayload;
+};
+export type JobName<T extends JobDefinitionComplex<any, any>> = T['name'];
+export type JobPayloadType<T extends JobDefinitionComplex<any, any>> = T['payload'];
+export type JobDefinitionHandler<T extends JobDefinitionComplex<any, any>> = QueueHandler<JobPayloadType<T>>;
 export interface JobModule<TName extends string, TPayload> {
   name: TName;
   handler: QueueHandler<TPayload>;
 }
-
-/**
- * Utility type to convert a job module into a job map entry.
- */
 export type JobModuleToMapEntry<T extends JobModule<any, any>> = {
   [K in T['name']]: T extends JobModule<K, infer P> ? P : never;
 };
-
-/**
- * Utility type to convert an array of job modules into a complete job map.
- * This allows you to assemble individual job modules into a complete type-safe job map.
- * 
- * @example
- * ```typescript
- * const emailJob = { name: 'send-email', handler: emailHandler };
- * const imageJob = { name: 'process-image', handler: imageHandler };
- * 
- * type MyJobMap = JobModulesToMap<[typeof emailJob, typeof imageJob]>;
- * // Results in: { 'send-email': EmailPayload; 'process-image': ImagePayload }
- * ```
- */
 export type JobModulesToMap<T extends readonly JobModule<any, any>[]> = {
   [K in T[number]['name']]: T[number] extends JobModule<K, infer P> ? P : never;
 };
-
-/**
- * Utility type to extract all handlers from an array of job modules.
- */
 export type JobModulesToHandlers<T extends readonly JobModule<any, any>[]> = {
   [K in T[number]['name']]: T[number] extends JobModule<K, infer P> ? QueueHandler<P> : never;
 };

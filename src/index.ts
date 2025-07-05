@@ -5,7 +5,16 @@ export { InMemoryQueue } from './drivers/memory.ts';
 export { Worker, runWorker } from './worker/worker.ts';
 
 // Job assembly utilities
-export { assembleHandlers, createQueueWithModules, defineJob, defineJobWithPayload, defineJobType } from './utils/job-assembly.ts';
+export { 
+  assembleJobs, 
+  createQueueSetup, 
+  defineJob,
+  // Legacy functions for backward compatibility
+  assembleHandlers, 
+  createQueueWithModules, 
+  defineJobWithPayload, 
+  defineJobType 
+} from './utils/job-assembly.ts';
 
 export type { 
   JobStatus, 
@@ -24,10 +33,19 @@ export type {
   FileJobOptions,
   InMemoryJobRequest,
   InMemoryJobOptions,
+  // Main convenience types
   QueueArgs,
   QueueHandler,
   JobPayload,
+  // Simple job definition types
   JobDefinition,
+  JobDefinitionPayload,
+  JobDefinitionName,
+  JobDefinitionToMapEntry,
+  JobDefinitionsToMap,
+  JobDefinitionsToHandlers,
+  // Legacy modular job definition types
+  JobDefinitionComplex,
   JobName,
   JobPayloadType,
   JobDefinitionHandler,
