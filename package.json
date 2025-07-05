@@ -1,6 +1,6 @@
 {
-  "name": "@muniter/queue",
-  "version": "1.0.0",
+  "name": "adapter-queue",
+  "version": "0.0.1",
   "description": "A TypeScript queue system inspired by Yii2-Queue architecture",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,7 +27,15 @@
     "typescript",
     "yii2-queue"
   ],
-  "author": "",
+  "author": "Javier López <javierlopezdeveloper@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muniter/adapter-queue.git"
+  },
+  "bugs": {
+    "url": "https://github.com/muniter/adapter-queue/issues"
+  },
+  "homepage": "https://github.com/muniter/adapter-queue#readme",
   "license": "MIT",
   "files": [
     "dist/**/*",

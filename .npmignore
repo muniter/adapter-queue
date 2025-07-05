@@ -1,0 +1,36 @@
+# Source files (TypeScript)
+src/
+tests/
+example-queue-project/
+
+# Config files
+tsconfig.json
+vitest.config.ts
+.gitignore
+CLAUDE.md
+
+# Development files
+*.test.js
+*.test.d.ts
+*.test.js.map
+
+# Queue data files
+*.db
+*.sqlite
+*.sqlite3
+*.data
+queue.index.json
+queue.index.json*
+
+# Build artifacts
+*.tsbuildinfo
+
+# CI/CD
+.github/
+
+# Documentation source
+docs/
+
+# Development dependencies
+node_modules/
+pnpm-lock.yaml
