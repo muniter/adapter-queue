@@ -9,12 +9,29 @@ export {
   assembleJobs, 
   createQueueSetup, 
   defineJob,
+  // Enhanced assembly functions for circular dependency avoidance
+  assembleJobsWithQueue,
+  assembleJobFactories,
+  assembleJobsWithLocator,
+  assembleJobsUniversal,
+  createQueueWithRegistry,
   // Legacy functions for backward compatibility
   assembleHandlers, 
   createQueueWithModules, 
   defineJobWithPayload, 
   defineJobType 
 } from './utils/job-assembly.ts';
+
+// Queue registry for circular dependency avoidance
+export {
+  QueueRegistry,
+  setQueue,
+  getQueue,
+  getQueueSafe,
+  hasQueue,
+  clearQueue,
+  createQueueGetter
+} from './utils/queue-registry.ts';
 
 export type { 
   JobStatus, 
@@ -44,6 +61,11 @@ export type {
   JobDefinitionToMapEntry,
   JobDefinitionsToMap,
   JobDefinitionsToHandlers,
+  // Circular dependency avoidance types
+  JobContextWithQueue,
+  JobDefinitionWithQueue,
+  JobFactory,
+  JobDefinitionWithLocator,
   // Legacy modular job definition types
   JobDefinitionComplex,
   JobName,

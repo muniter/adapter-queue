@@ -41,6 +41,17 @@ export type QueueArgs<T> = JobContext<T>;
 export type JobHandler<T> = (job: JobContext<T>, queue: any) => Promise<void> | void;
 
 /**
+ * Enhanced job context that includes queue access methods.
+ * This avoids circular dependencies by providing queue methods in the context.
+ */
+export interface JobContextWithQueue<T> extends JobContext<T> {
+  queue: {
+    addJob<K extends string>(name: K, request: { payload: any }): Promise<string>;
+    getStatus(id: string): Promise<JobStatus>;
+  };
+}
+
+/**
  * Type mapping all job types to their corresponding handlers.
  * Ensures type safety and completeness of handler registration.
  */
@@ -99,6 +110,85 @@ export type JobPayload<TJobMap, K extends keyof TJobMap> = TJobMap[K];
 export interface JobDefinition<TPayload> {
   name: string;
   handler: (args: QueueArgs<TPayload>, queue?: any) => Promise<void> | void;
+}
+
+/**
+ * Job definition with enhanced context that includes queue methods.
+ * Use this to avoid circular dependencies when you need queue access.
+ * 
+ * @example
+ * ```typescript
+ * const emailJob: JobDefinitionWithQueue<{
+ *   to: string;
+ *   name: string;
+ * }> = {
+ *   name: "welcome-email",
+ *   handler: async (args) => {
+ *     const { payload, queue } = args;
+ *     await sendWelcomeEmail(payload.to, payload.name);
+ *     
+ *     // Can add follow-up jobs without circular dependency
+ *     await queue.addJob("follow-up", { payload: { userId: "123" } });
+ *   }
+ * };
+ * ```
+ */
+export interface JobDefinitionWithQueue<TPayload> {
+  name: string;
+  handler: (args: JobContextWithQueue<TPayload>) => Promise<void> | void;
+}
+
+/**
+ * Job definition using factory pattern to avoid circular dependencies.
+ * The handler is a factory function that receives the queue and returns the actual handler.
+ * 
+ * @example
+ * ```typescript
+ * const emailJob: JobFactory<{
+ *   to: string;
+ *   name: string;
+ * }> = {
+ *   name: "welcome-email",
+ *   factory: (queue) => async (args) => {
+ *     const { payload } = args;
+ *     await sendWelcomeEmail(payload.to, payload.name);
+ *     
+ *     // Can use queue directly without circular dependency
+ *     await queue.addJob("follow-up", { payload: { userId: "123" } });
+ *   }
+ * };
+ * ```
+ */
+export interface JobFactory<TPayload> {
+  name: string;
+  factory: (queue: any) => (args: QueueArgs<TPayload>) => Promise<void> | void;
+}
+
+/**
+ * Job definition that uses a service locator pattern.
+ * Handlers can get the queue from a registry without circular dependencies.
+ * 
+ * @example
+ * ```typescript
+ * const emailJob: JobDefinitionWithLocator<{
+ *   to: string;
+ *   name: string;
+ * }> = {
+ *   name: "welcome-email",
+ *   handler: async (args, getQueue) => {
+ *     const { payload } = args;
+ *     await sendWelcomeEmail(payload.to, payload.name);
+ *     
+ *     // Get queue from locator when needed
+ *     const queue = getQueue();
+ *     await queue.addJob("follow-up", { payload: { userId: "123" } });
+ *   }
+ * };
+ * ```
+ */
+export interface JobDefinitionWithLocator<TPayload> {
+  name: string;
+  handler: (args: QueueArgs<TPayload>, getQueue: () => any) => Promise<void> | void;
 }
 
 /**
