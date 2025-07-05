@@ -16,7 +16,8 @@
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build && npm test",
     "queue:worker": "node dist/cli/worker.js",
-    "queue:worker:isolate": "node dist/cli/worker.js --isolate"
+    "queue:worker:isolate": "node dist/cli/worker.js --isolate",
+    "release": "node scripts/release.ts"
   },
   "keywords": [
     "queue",
