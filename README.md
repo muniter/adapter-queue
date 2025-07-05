@@ -1,4 +1,4 @@
-# @muniter/queue
+# adapter-queue
 
 A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean abstraction for job processing with multiple storage backends and event-based job handling.
 
@@ -13,12 +13,12 @@ A TypeScript queue system inspired by Yii2-Queue architecture, providing a clean
 ## Installation
 
 ```bash
-pnpm add @muniter/queue
+pnpm add adapter-queue
 ```
 
 For SQS support:
 ```bash
-pnpm add @muniter/queue @aws-sdk/client-sqs
+pnpm add adapter-queue @aws-sdk/client-sqs
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ pnpm add @muniter/queue @aws-sdk/client-sqs
 ### 1. Define Job Types and Handlers
 
 ```typescript
-import { FileQueue } from '@muniter/queue';
+import { FileQueue } from 'adapter-queue';
 
 // Define your job types with TypeScript
 interface MyJobs {
@@ -106,7 +106,7 @@ await queue.run(false);
 A file-based queue that stores jobs as individual files with JSON index tracking. Perfect for development and single-server applications.
 
 ```typescript
-import { FileQueue } from '@muniter/queue';
+import { FileQueue } from 'adapter-queue';
 
 const queue = new FileQueue<MyJobs>({
   path: './queue-data',    // Directory to store queue files
@@ -128,7 +128,7 @@ await queue.addJob('send-email', {
 Use any database that implements the `DatabaseAdapter` interface:
 
 ```typescript
-import { DbQueue } from '@muniter/queue';
+import { DbQueue } from 'adapter-queue';
 
 // You provide the database adapter implementation
 const dbAdapter = new YourDatabaseAdapter(); // implements DatabaseAdapter
@@ -149,7 +149,7 @@ Amazon SQS integration with native delay support:
 
 ```typescript
 import { SQSClient } from '@aws-sdk/client-sqs';
-import { SqsQueue } from '@muniter/queue';
+import { SqsQueue } from 'adapter-queue';
 
 const sqsClient = new SQSClient({ region: 'us-east-1' });
 const queue = new SqsQueue<MyJobs>(
@@ -210,24 +210,6 @@ await sqsQueue.addJob('send-email', {
 });
 ```
 
-## Worker Usage
-
-```typescript
-import { Worker } from '@muniter/queue';
-
-const worker = new Worker(queue);
-
-// Process jobs continuously
-await worker.start(true, 3); // repeat=true, timeout=3 seconds
-
-// Process once then exit
-await worker.start(false);
-
-// With custom timeout
-const worker = new Worker(queue, { timeout: 5 });
-await worker.start();
-```
-
 ## Event Handling
 
 ```typescript
@@ -258,7 +240,7 @@ queue.on('afterError', (event) => {
 To create your own database driver, implement the `DatabaseAdapter` interface:
 
 ```typescript
-import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from '@muniter/queue';
+import { DatabaseAdapter, QueueJobRecord, JobMeta, JobStatus } from 'adapter-queue';
 
 export class YourDatabaseAdapter implements DatabaseAdapter {
   async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
@@ -288,25 +270,6 @@ export class YourDatabaseAdapter implements DatabaseAdapter {
     // Return 'waiting' | 'reserved' | 'done' | 'failed'
   }
 }
-```
-
-## CLI Usage
-
-```bash
-# Database driver (requires your adapter)
-pnpm run queue:worker -- --driver db
-
-# SQS driver  
-pnpm run queue:worker -- --driver sqs --queue-url https://sqs.us-east-1.amazonaws.com/123/test
-
-# File driver
-pnpm run queue:worker -- --driver file --path ./queue-data
-
-# Run once and exit
-pnpm run queue:worker -- --no-repeat
-
-# Custom polling timeout
-pnpm run queue:worker -- --timeout 10
 ```
 
 ## API Reference
@@ -362,13 +325,13 @@ Without protection, in-flight jobs are lost when the container terminates. [ECS 
 - **Reliable**: Auto-renews protection for long-running jobs
 
 ```bash
-pnpm add @muniter/queue
+pnpm add adapter-queue
 ```
 
 ```typescript
-import { SQSQueue } from '@muniter/queue/sqs';
+import { SQSQueue } from 'adapter-queue/sqs';
 import { SQSClient } from '@aws-sdk/client-sqs';
-import { EcsProtectionManager, ecsTaskProtection } from '@muniter/queue/plugins/ecs-protection-manager';
+import { EcsProtectionManager, ecsTaskProtection } from 'adapter-queue/plugins/ecs-protection-manager';
 
 // Create protection manager (share across all queues in your app)
 const protectionManager = new EcsProtectionManager();
@@ -452,7 +415,7 @@ Plugins implement the `QueuePlugin` interface and can hook into these lifecycle 
 - `afterJob?()` - Called after job completion (success or failure)
 
 ```typescript
-import { QueuePlugin } from '@muniter/queue';
+import { QueuePlugin } from 'adapter-queue';
 
 function customPlugin(): QueuePlugin {
   return {

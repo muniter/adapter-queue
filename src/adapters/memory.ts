@@ -12,7 +12,7 @@ export { InMemoryQueue, type InMemoryQueueOptions } from '../drivers/memory.ts';
  * 
  * @example
  * ```typescript
- * import { createMemoryQueue } from '@muniter/queue/memory';
+ * import { createMemoryQueue } from 'adapter-queue/memory';
  * 
  * interface MyJobs {
  *   'send-email': { to: string; subject: string };

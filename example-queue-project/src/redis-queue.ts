@@ -1,4 +1,4 @@
-import { createRedisQueue } from "@muniter/queue/redis";
+import { createRedisQueue } from "adapter-queue/redis";
 
 interface EmailJobs {
   "welcome-email": { to: string; name: string };

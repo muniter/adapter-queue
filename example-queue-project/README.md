@@ -1,6 +1,6 @@
 # Queue Example Project
 
-This example demonstrates how to use `@muniter/queue` in a realistic production setup with separate processes for job producers and consumers.
+This example demonstrates how to use `adapter-queue` in a realistic production setup with separate processes for job producers and consumers.
 
 ## Architecture
 

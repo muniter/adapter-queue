@@ -267,8 +267,8 @@ export class EcsProtectionManager {
  *
  * @example Basic usage:
  * ```typescript
- * import { FileQueue } from '@muniter/queue';
- * import { EcsProtectionManager, ecsTaskProtection } from '@muniter/queue/plugins/ecs-protection-manager';
+ * import { FileQueue } from 'adapter-queue';
+ * import { EcsProtectionManager, ecsTaskProtection } from 'adapter-queue/plugins/ecs-protection-manager';
  *
  * // Create protection manager (can be shared across multiple queues)
  * const protectionManager = new EcsProtectionManager();

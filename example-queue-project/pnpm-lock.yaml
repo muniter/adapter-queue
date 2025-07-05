@@ -11,7 +11,7 @@ importers:
       '@aws-sdk/client-sqs':
         specifier: ^3.831.0
         version: 3.831.0
-      '@muniter/queue':
+      'adapter-queue':
         specifier: file:..
         version: file:..(@aws-sdk/client-sqs@3.831.0)
       dotenv:
@@ -305,7 +305,7 @@ packages:
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
 
-  '@muniter/queue@file:..':
+  'adapter-queue@file:..':
     resolution: {directory: .., type: directory}
     engines: {node: '>=18.0.0'}
     peerDependencies:
@@ -1474,7 +1474,7 @@ snapshots:
   '@gar/promisify@1.1.3':
     optional: true
 
-  '@muniter/queue@file:..(@aws-sdk/client-sqs@3.831.0)':
+  'adapter-queue@file:..(@aws-sdk/client-sqs@3.831.0)':
     optionalDependencies:
       '@aws-sdk/client-sqs': 3.831.0
 

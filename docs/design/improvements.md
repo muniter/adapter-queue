@@ -147,7 +147,7 @@ CREATE TABLE jobs_archive AS SELECT * FROM jobs WHERE FALSE;
 ### Option 1: Bull-like API (Recommended)
 
 ```typescript
-import { Queue } from '@muniter/queue';
+import { Queue } from 'adapter-queue';
 
 // Create typed queues
 const emailQueue = new Queue<EmailData>('emails', {

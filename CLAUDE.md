@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `@muniter/queue`, a TypeScript queue system inspired by Yii2-Queue architecture. It provides a clean abstraction for job processing with multiple storage backends (Database, Amazon SQS, and File system).
+This is `adapter-queue`, a TypeScript queue system inspired by Yii2-Queue architecture. It provides a clean abstraction for job processing with multiple storage backends (Database, Amazon SQS, and File system).
 
 ### What This Package Does
 
-**@muniter/queue** is an event-driven job queue system that allows you to:
+**adapter-queue** is an event-driven job queue system that allows you to:
 - Define job types as TypeScript interfaces (not classes) for type safety
 - Register job handlers using type-safe `setHandlers()` method
 - Add jobs to queues with compile-time validation of payloads and options

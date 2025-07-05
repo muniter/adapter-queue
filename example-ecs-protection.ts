@@ -8,9 +8,9 @@
  * ECS + SQS production setup.
  */
 
-import { SQSQueue } from '@muniter/queue/sqs';
+import { SQSQueue } from 'adapter-queue/sqs';
 import { SQSClient } from '@aws-sdk/client-sqs';
-import { EcsProtectionManager, ecsTaskProtection } from '@muniter/queue/plugins/ecs-protection-manager';
+import { EcsProtectionManager, ecsTaskProtection } from 'adapter-queue/plugins/ecs-protection-manager';
 
 interface EmailJobs {
   'send-welcome-email': { 

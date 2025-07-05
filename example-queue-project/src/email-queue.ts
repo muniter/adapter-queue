@@ -1,5 +1,5 @@
-import { FileQueue } from "@muniter/queue";
-import { createSQSQueue } from "@muniter/queue/sqs";
+import { FileQueue } from "adapter-queue";
+import { createSQSQueue } from "adapter-queue/sqs";
 
 interface EmailJobs {
   "welcome-email": { to: string; name: string };

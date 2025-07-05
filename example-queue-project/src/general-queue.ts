@@ -1,4 +1,4 @@
-import { createSQLiteQueue } from "@muniter/queue/sqlite";
+import { createSQLiteQueue } from "adapter-queue/sqlite";
 
 export interface GeneralJobs {
     'process-image': { url: string; width: number; height: number };

@@ -43,7 +43,7 @@ export interface InMemoryQueueOptions extends QueueOptions {
  * 
  * @example
  * ```typescript
- * import { InMemoryQueue } from '@muniter/queue/memory';
+ * import { InMemoryQueue } from 'adapter-queue/memory';
  * 
  * const queue = new InMemoryQueue<MyJobs>({
  *   name: 'test-queue',

@@ -4,7 +4,7 @@
 
 ### Problem Statement
 
-The `@muniter/queue` package provides a solid foundation for job processing across multiple backends (Database, SQS, File). However, production deployments often require environment-specific features like:
+The `adapter-queue` package provides a solid foundation for job processing across multiple backends (Database, SQS, File). However, production deployments often require environment-specific features like:
 
 - **ECS Task Protection**: Preventing job loss during container scale-in events
 - **Metrics Collection**: Tracking job processing times and success rates
@@ -243,7 +243,7 @@ Key behaviors:
 ```typescript
 // plugins/ecsTaskProtection.ts
 import axios from 'axios';
-import type { QueuePlugin } from '@muniter/queue';
+import type { QueuePlugin } from 'adapter-queue';
 
 class ProtectionManager {
   private activeJobs = 0;
@@ -381,8 +381,8 @@ export function ecsTaskProtection(): QueuePlugin {
 ### Basic Usage
 
 ```typescript
-import { FileQueue } from '@muniter/queue';
-import { ecsTaskProtection } from '@muniter/queue/plugins';
+import { FileQueue } from 'adapter-queue';
+import { ecsTaskProtection } from 'adapter-queue/plugins';
 
 const queue = new FileQueue<MyJobs>({ 
   path: './queue',
@@ -824,7 +824,7 @@ The Queue class already has:
    - Plugins are optional, zero overhead when not used
 
 3. **Ship ECS plugin**: 
-   - As a separate export `@muniter/queue/plugins`
+   - As a separate export `adapter-queue/plugins`
    - No dependencies added to core
 
 ### Backward Compatibility

@@ -18,7 +18,7 @@
     "redis:logs": "docker-compose logs -f redis"
   },
   "dependencies": {
-    "@muniter/queue": "link:..",
+    "adapter-queue": "link:..",
     "dotenv": "^16.3.1"
   },
   "peerDependencies": {
