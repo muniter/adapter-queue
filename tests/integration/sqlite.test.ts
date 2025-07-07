@@ -111,7 +111,7 @@ describe('SQLite Integration Tests', () => {
       // Add delayed job (1 second delay)
       await queue.addJob('delayed-job', { 
         payload: { message: 'delayed' }, 
-        delay: 1 
+        delaySeconds: 1 
       });
 
       // Should not process immediately

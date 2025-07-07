@@ -31,7 +31,7 @@ describe('SqsQueue', () => {
       await queue.addJob('simple-job', { 
         payload: { data: 'test' }, 
         ttr: 600, 
-        delay: 30 
+        delaySeconds: 30 
       });
 
       expect(sqsClient.sentMessages).toHaveLength(1);
@@ -43,7 +43,7 @@ describe('SqsQueue', () => {
     it('should respect delay seconds', async () => {
       await queue.addJob('simple-job', { 
         payload: { data: 'delayed' }, 
-        delay: 30 
+        delaySeconds: 30 
       });
 
       expect(sqsClient.sentMessages).toHaveLength(1);

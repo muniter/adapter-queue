@@ -30,8 +30,12 @@ class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
     const message = this.messages.shift();
     if (!message) return null;
     
+    // Extract job name from payload
+    const jobData = JSON.parse(message.payload);
+    
     return {
       id: message.id,
+      name: jobData.name,
       payload: message.payload,
       meta: message.meta
     };
@@ -79,7 +83,7 @@ describe('Queue', () => {
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
       expect(queue.messages[0]?.meta.ttr).toBe(300);
-      expect(queue.messages[0]?.meta.delay).toBe(0);
+      expect(queue.messages[0]?.meta.delaySeconds).toBe(0);
       expect(queue.messages[0]?.meta.priority).toBe(0);
     });
 
@@ -87,14 +91,14 @@ describe('Queue', () => {
       const id = await queue.addJob('test-job', {
         payload: { data: 'test data' },
         ttr: 600,
-        delay: 30,
+        delaySeconds: 30,
         priority: 5
       });
 
       expect(id).toBe('1');
       expect(queue.messages).toHaveLength(1);
       expect(queue.messages[0]?.meta.ttr).toBe(600);
-      expect(queue.messages[0]?.meta.delay).toBe(30);
+      expect(queue.messages[0]?.meta.delaySeconds).toBe(30);
       expect(queue.messages[0]?.meta.priority).toBe(5);
     });
 
@@ -145,6 +149,7 @@ describe('Queue', () => {
       
       const message: QueueMessage = {
         id: '1',
+        name: 'test-job',
         payload: payloadString,
         meta: { ttr: 300 }
       };
@@ -183,6 +188,7 @@ describe('Queue', () => {
       
       const message: QueueMessage = {
         id: '1',
+        name: 'test-job',
         payload: payloadString,
         meta: { ttr: 300 }
       };
@@ -222,6 +228,7 @@ describe('Queue', () => {
       
       const message: QueueMessage = {
         id: '1',
+        name: 'test-job',
         payload: payloadString,
         meta: { ttr: 300 }
       };
@@ -257,6 +264,7 @@ describe('Queue', () => {
       
       const message: QueueMessage = {
         id: '1',
+        name: 'test-job',
         payload: payloadString,
         meta: { ttr: 300 }
       };
@@ -491,7 +499,7 @@ describe('Queue', () => {
       await queue.addJob('test-job', { 
         payload: { data: 'test data' },
         ttr: 600,
-        delay: 10,
+        delaySeconds: 10,
         priority: 5
       });
       
@@ -504,7 +512,7 @@ describe('Queue', () => {
       expect(completedJob.id).toBe('1');
       expect(completedJob.message.id).toBe('1');
       expect(completedJob.message.meta.ttr).toBe(600);
-      expect(completedJob.message.meta.delay).toBe(10);
+      expect(completedJob.message.meta.delaySeconds).toBe(10);
       expect(completedJob.message.meta.priority).toBe(5);
       expect(JSON.parse(completedJob.message.payload)).toEqual({
         name: 'test-job',

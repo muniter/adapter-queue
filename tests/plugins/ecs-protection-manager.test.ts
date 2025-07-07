@@ -84,6 +84,7 @@ describe('ECS Task Protection Plugin', () => {
 
       const mockJob: QueueMessage = {
         id: 'test-job-1',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 300 }
       };
@@ -223,12 +224,14 @@ describe('ECS Task Protection Plugin', () => {
 
       const job1: QueueMessage = {
         id: 'job-1',
+        name: 'test-job',
         payload: '{"data":"test1"}',
         meta: { ttr: 300 }
       };
 
       const job2: QueueMessage = {
         id: 'job-2',
+        name: 'test-job',
         payload: '{"data":"test2"}',
         meta: { ttr: 300 }
       };
@@ -282,6 +285,7 @@ describe('ECS Task Protection Plugin', () => {
 
       const longJob: QueueMessage = {
         id: 'long-job',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 900 } // 15 minutes - longer than default
       };
@@ -326,6 +330,7 @@ describe('ECS Task Protection Plugin', () => {
       // Create multiple jobs
       const jobs = Array.from({ length: 5 }, (_, i) => ({
         id: `job-${i}`,
+        name: 'test-job',
         payload: `{"data":"test${i}"}`,
         meta: { ttr: 300 }
       }));
@@ -360,12 +365,14 @@ describe('ECS Task Protection Plugin', () => {
 
       const job1: QueueMessage = {
         id: 'queue1-job',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 300 }
       };
 
       const job2: QueueMessage = {
         id: 'queue2-job',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 300 }
       };
@@ -400,6 +407,7 @@ describe('ECS Task Protection Plugin', () => {
 
       const job: QueueMessage = {
         id: 'failing-job',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 300 }
       };
@@ -479,6 +487,7 @@ describe('ECS Task Protection Plugin', () => {
 
       const mockJob: QueueMessage = {
         id: 'test-job-1',
+        name: 'test-job',
         payload: '{"data":"test"}',
         meta: { ttr: 300 }
       };
@@ -522,6 +531,7 @@ describe('ECS Task Protection Plugin', () => {
       for (let i = 0; i < 10; i++) {
         const job: QueueMessage = {
           id: `rapid-job-${i}`,
+          name: 'test-job',
           payload: '{"data":"test"}',
           meta: { ttr: 60 }
         };
@@ -579,6 +589,7 @@ describe('ECS Task Protection Plugin', () => {
       // Short job within protection window - should not extend
       const shortJob: QueueMessage = {
         id: 'short-job',
+        name: 'test-job',
         payload: '{\"data\":\"test\"}',
         meta: { ttr: 120 } // 2 minutes - shorter than default
       };
@@ -592,6 +603,7 @@ describe('ECS Task Protection Plugin', () => {
       // Long job beyond protection window - should extend
       const longJob: QueueMessage = {
         id: 'long-job',
+        name: 'test-job',
         payload: '{\"data\":\"test\"}',
         meta: { ttr: 600 } // 10 minutes - longer than remaining protection
       };

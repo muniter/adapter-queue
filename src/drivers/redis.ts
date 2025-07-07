@@ -146,9 +146,9 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     const message = `${ttr};${payload}`;
     await this.redis.hset(this.messagesKey, id, message);
     
-    if (meta.delay && meta.delay > 0) {
+    if (meta.delaySeconds && meta.delaySeconds > 0) {
       // Add to delayed set with execution time as score
-      const executeAt = now + meta.delay;
+      const executeAt = now + meta.delaySeconds;
       await this.redis.zadd(this.delayedKey, executeAt, id);
     } else {
       // Add to waiting list (FIFO queue)
@@ -207,8 +207,12 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     // Increment attempt counter
     await this.redis.hincrby(this.attemptsKey, id, 1);
     
+    // Extract job name from payload
+    const jobData = JSON.parse(payloadStr);
+    
     return {
       id,
+      name: jobData.name,
       payload: payloadStr,
       meta: {
         ttr,

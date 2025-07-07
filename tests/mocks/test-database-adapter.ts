@@ -32,7 +32,7 @@ export class TestDatabaseAdapter implements DatabaseAdapter {
       if (job.doneAt) continue;
       if (job.reservedAt) continue;
       
-      const delaySeconds = job.meta.delay || 0;
+      const delaySeconds = job.meta.delaySeconds || 0;
       const delayUntil = new Date(job.pushedAt.getTime() + delaySeconds * 1000);
       if (now < delayUntil) continue;
 

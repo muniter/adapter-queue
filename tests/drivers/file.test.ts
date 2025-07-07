@@ -57,7 +57,7 @@ describe('FileQueue', () => {
     it('should add delayed job to delayed queue', async () => {
       const id = await queue.addJob('delayed-job', { 
         payload: { message: 'test payload' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
       
       const status = await queue.status(id);
@@ -90,7 +90,7 @@ describe('FileQueue', () => {
     it('should respect delay', async () => {
       await queue.addJob('delayed-job', { 
         payload: { message: 'test payload' }, 
-        delay: 2 
+        delaySeconds: 2 
       });
 
       const reserved1 = await queue['reserve'](0);
@@ -148,7 +148,7 @@ describe('FileQueue', () => {
       await queue.addJob('simple-job', { payload: { data: 'job2' } });
       await queue.addJob('delayed-job', { 
         payload: { message: 'job3' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
 
       await queue.clear();
@@ -176,7 +176,7 @@ describe('FileQueue', () => {
     it('should remove specific job from delayed', async () => {
       const id = await queue.addJob('delayed-job', { 
         payload: { message: 'test payload' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
 
       const removed = await queue.remove(id);

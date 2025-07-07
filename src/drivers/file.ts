@@ -66,7 +66,7 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
       }
 
       const ttr = meta.ttr ?? 300;
-      const delay = meta.delay ?? 0;
+      const delay = meta.delaySeconds ?? 0;
 
       if (delay === 0) {
         data.waiting.push([jobId, ttr]);
@@ -131,8 +131,13 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
       if (reserved) {
         const jobPath = path.join(this.path, `job${reserved.id}.data`);
         const payload = await fs.readFile(jobPath, 'utf8');
+        
+        // Extract job name from payload
+        const jobData = JSON.parse(payload);
+        
         return {
           id: reserved.id,
+          name: jobData.name,
           payload,
           meta: {
             ttr: reserved.ttr

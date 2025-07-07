@@ -61,7 +61,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     const command = new SendMessageCommand({
       QueueUrl: this.queueUrl,
       MessageBody: payload,
-      DelaySeconds: meta.delay || 0,
+      DelaySeconds: meta.delaySeconds || 0,
       MessageAttributes: messageAttributes,
     });
 
@@ -116,8 +116,12 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       await this.client.send(visibilityCommand);
     }
 
+    // Extract job name from payload
+    const jobData = JSON.parse(payload);
+    
     return {
       id: message.MessageId,
+      name: jobData.name,
       payload,
       meta: {
         ...meta,

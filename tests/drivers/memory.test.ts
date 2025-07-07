@@ -59,7 +59,7 @@ describe('InMemoryQueue', () => {
     it('should add delayed job', async () => {
       const id = await queue.addJob('delayed-job', { 
         payload: { message: 'test payload' }, 
-        delay: 1
+        delaySeconds: 1
       });
       
       const status = await queue.status(id);
@@ -172,7 +172,7 @@ describe('InMemoryQueue', () => {
     it('should not reserve delayed jobs before delay expires', async () => {
       await queue.addJob('delayed-job', { 
         payload: { message: 'delayed' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
 
       const reserved = await queue['reserve'](0);
@@ -277,7 +277,7 @@ describe('InMemoryQueue', () => {
       // Add delayed job
       await queue.addJob('delayed-job', { 
         payload: { message: 'delayed' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
       
       // Add and reserve job
@@ -309,7 +309,7 @@ describe('InMemoryQueue', () => {
       await queue.addJob('simple-job', { payload: { data: 'job1' } });
       await queue.addJob('delayed-job', { 
         payload: { message: 'job2' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
       
       const stats1 = queue.getStats();
@@ -329,7 +329,7 @@ describe('InMemoryQueue', () => {
       // Add delayed job
       await queue.addJob('delayed-job', { 
         payload: { message: 'delayed' }, 
-        delay: 1 
+        delaySeconds: 1 
       });
       
       // Add job with TTR and reserve it
@@ -353,7 +353,7 @@ describe('InMemoryQueue', () => {
     it('should clear all timeouts on cleanup', async () => {
       await queue.addJob('delayed-job', { 
         payload: { message: 'delayed' }, 
-        delay: 10 
+        delaySeconds: 10 
       });
       
       await queue.addJob('simple-job', { 

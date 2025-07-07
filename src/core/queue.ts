@@ -97,7 +97,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * await queue.addJob('backup', {
    *   payload: { path: '/data' },
    *   ttr: 3600,
-   *   delay: 60
+   *   delaySeconds: 60
    * });
    * ```
    */
@@ -109,7 +109,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
     
     const meta: JobMeta = {
       ttr: options.ttr ?? this.ttrDefault,
-      delay: (options as any).delay ?? 0,
+      delaySeconds: (options as any).delaySeconds ?? 0,
       priority: (options as any).priority ?? 0,
       pushedAt: new Date()
     };
@@ -423,7 +423,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * Pushes a new message to the queue storage backend.
    * 
    * @param payload - Serialized job data as string
-   * @param meta - Job metadata including TTR, delay, priority
+   * @param meta - Job metadata including TTR, delaySeconds, priority
    * @returns Promise resolving to unique job ID
    * @protected
    * @abstract

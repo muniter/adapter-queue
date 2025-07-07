@@ -26,9 +26,14 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
       return null;
     }
 
+    const payload = record.payload.toString();
+    // Extract job name from payload
+    const jobData = JSON.parse(payload);
+    
     return {
       id: record.id,
-      payload: record.payload.toString(),
+      name: jobData.name,
+      payload,
       meta: record.meta
     };
   }

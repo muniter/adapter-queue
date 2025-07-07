@@ -30,14 +30,14 @@ describe('DbQueue', () => {
     it('should accept job delay in options', async () => {
       const id = await queue.addJob('simple-job', { 
         payload: { data: 'delayed job' }, 
-        delay: 5 
+        delaySeconds: 5 
       });
       
       const immediateReserve = await queue['reserve'](0);
       expect(immediateReserve).toBeNull();
       
       // In a real test, we'd wait or mock time
-      expect(dbAdapter.jobsArray[0]?.meta.delay).toBe(5);
+      expect(dbAdapter.jobsArray[0]?.meta.delaySeconds).toBe(5);
     });
 
     it('should handle job execution lifecycle', async () => {
@@ -99,7 +99,7 @@ describe('DbQueue', () => {
       expect(await queue.status(id)).toBe('reserved');
       
       // After completing
-      await queue['completeJob']({ id, payload: '', meta: {} });
+      await queue['completeJob']({ id, name: 'test-job', payload: '', meta: {} });
       expect(await queue.status(id)).toBe('done');
     });
 
@@ -112,7 +112,7 @@ describe('DbQueue', () => {
       
       // After failing
       const error = new Error('Job failed');
-      await queue['failJob']({ id, payload: '', meta: {} }, error);
+      await queue['failJob']({ id, name: 'test-job', payload: '', meta: {} }, error);
       expect(await queue.status(id)).toBe('failed'); // Test adapter returns failed status
       
       // Verify the adapter's failJob was called
@@ -128,7 +128,7 @@ describe('DbQueue', () => {
       const id = await queue.addJob('simple-job', { 
         payload: { data: 'options job' },
         ttr: 600, 
-        delay: 30, 
+        delaySeconds: 30, 
         priority: 5 
       });
 
@@ -136,7 +136,7 @@ describe('DbQueue', () => {
       
       const job = dbAdapter.jobsArray.find(j => j.id === id);
       expect(job!.meta.ttr).toBe(600);
-      expect(job!.meta.delay).toBe(30);
+      expect(job!.meta.delaySeconds).toBe(30);
       expect(job!.meta.priority).toBe(5);
     });
   });

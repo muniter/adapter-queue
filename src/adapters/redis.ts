@@ -77,10 +77,10 @@ export class RedisDatabaseAdapter implements DatabaseAdapter {
       id: jobId,
       payload: payload.toString('base64'),
       ttr: (meta.ttr || 300).toString(),
-      delay: (meta.delay || 0).toString(),
+      delay_seconds: (meta.delaySeconds || 0).toString(),
       priority: (meta.priority || 0).toString(),
       push_time: now.toString(),
-      delay_time: meta.delay ? (now + meta.delay * 1000).toString() : '',
+      delay_time: meta.delaySeconds ? (now + meta.delaySeconds * 1000).toString() : '',
       status: 'waiting',
       attempt: '0'
     };
@@ -89,9 +89,9 @@ export class RedisDatabaseAdapter implements DatabaseAdapter {
     await this.client.hSet(this.getJobKey(jobId), jobData);
 
     // Add to waiting queue based on delay
-    if (meta.delay && meta.delay > 0) {
+    if (meta.delaySeconds && meta.delaySeconds > 0) {
       // Add to delayed set with execution time as score
-      const executeAt = Math.floor((now + meta.delay * 1000) / 1000);
+      const executeAt = Math.floor((now + meta.delaySeconds * 1000) / 1000);
       await this.client.zAdd(`${this.keyPrefix}:delayed`, {
         score: executeAt,
         value: jobId
@@ -157,7 +157,7 @@ export class RedisDatabaseAdapter implements DatabaseAdapter {
       payload: Buffer.from(jobData.payload, 'base64'),
       meta: {
         ttr: parseInt(jobData.ttr || '300'),
-        delay: parseInt(jobData.delay || '0'),
+        delaySeconds: parseInt(jobData.delay_seconds || '0'),
         priority: parseInt(jobData.priority || '0'),
         pushedAt: new Date(parseInt(jobData.push_time || '0')),
         reservedAt: new Date(now * 1000)

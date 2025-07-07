@@ -126,7 +126,7 @@ describe('SQS Integration Tests (LocalStack)', () => {
       
       await queue.addJob('process-data', {
         payload: { id: 3, data: 'delayed job' },
-        delay: 2 // 2 seconds delay
+        delaySeconds: 2 // 2 seconds delay
       });
 
       // Immediate attempt should return null (job not available yet)

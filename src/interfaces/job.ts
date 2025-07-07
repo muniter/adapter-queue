@@ -6,7 +6,7 @@ export interface JobMeta {
   /** Time to run - number of seconds to run the job */ 
   ttr?: number;
   /** Number of seconds to delay job execution from now */
-  delay?: number;
+  delaySeconds?: number;
   /** Job priority - higher numbers = higher priority (processed first) */
   priority?: number;
   /** Job pushed at */
@@ -27,7 +27,7 @@ export interface JobContext<T> {
   id: string;
   /** Job payload */
   payload: T;
-  /** Job meta: ttr, delay, priority, pushedAt, reservedAt, doneAt, receiptHandle */
+  /** Job meta: ttr, delaySeconds, priority, pushedAt, reservedAt, doneAt, receiptHandle */
   meta: JobMeta;
   /** Job pushed at */
   pushedAt?: Date;
@@ -54,7 +54,7 @@ export interface QueueMessage {
   name: string;
   /** Job payload */
   payload: string;
-  /** Job meta: ttr, delay, priority, pushedAt, reservedAt, doneAt, receiptHandle */
+  /** Job meta: ttr, delaySeconds, priority, pushedAt, reservedAt, doneAt, receiptHandle */
   meta: JobMeta;
 }
 
@@ -81,7 +81,7 @@ export interface BaseJobOptions {
 // Full options interface (for internal use)
 export interface JobOptions extends BaseJobOptions {
   /** Number of seconds to delay job execution from now */
-  delay?: number;
+  delaySeconds?: number;
   /** Job priority - higher numbers = higher priority (processed first) */
   priority?: number;
 }
@@ -91,24 +91,24 @@ export interface DbJobOptions extends BaseJobOptions {
   // DB adapters may or may not support delay/priority - we allow them for flexibility
   // The specific DatabaseAdapter implementation determines actual support
   /** Number of seconds to delay job execution from now. Support varies by database adapter. */
-  delay?: number;
+  delaySeconds?: number;
   /** Job priority - higher numbers = higher priority. Support varies by database adapter. */
   priority?: number;
 }
 
 export interface SqsJobOptions extends BaseJobOptions {
   /** Number of seconds to delay job execution from now (0-900 seconds max for SQS) */
-  delay?: number;
+  delaySeconds?: number;
 }
 
 export interface FileJobOptions extends BaseJobOptions {
   /** Number of seconds to delay job execution from now */
-  delay?: number;
+  delaySeconds?: number;
 }
 
 export interface InMemoryJobOptions extends BaseJobOptions {
   /** Number of seconds to delay job execution from now */
-  delay?: number;
+  delaySeconds?: number;
   /** Job priority - higher numbers = higher priority (processed first) */
   priority?: number;
 }

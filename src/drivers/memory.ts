@@ -59,7 +59,7 @@ export interface InMemoryQueueOptions extends QueueOptions {
  * await queue.addJob('my-job', { 
  *   payload: { data: 'test' },
  *   priority: 5,
- *   delay: 10
+ *   delaySeconds: 10
  * });
  * 
  * await queue.run(true, 1);
@@ -94,15 +94,15 @@ export class InMemoryQueue<TJobMap = Record<string, any>> extends Queue<TJobMap,
     this.jobs.set(id, job);
 
     // Handle delay
-    if (meta.delay && meta.delay > 0) {
-      job.delayTime = Date.now() + (meta.delay * 1000);
+    if (meta.delaySeconds && meta.delaySeconds > 0) {
+      job.delayTime = Date.now() + (meta.delaySeconds * 1000);
       job.status = 'waiting';
       
       // Schedule job to become available after delay
       const timeout = setTimeout(() => {
         this.delayedJobs.delete(id);
         this.addToWaitingQueue(id);
-      }, meta.delay * 1000);
+      }, meta.delaySeconds * 1000);
       
       this.delayedJobs.set(id, timeout);
     } else {
@@ -147,8 +147,12 @@ export class InMemoryQueue<TJobMap = Record<string, any>> extends Queue<TJobMap,
     
     this.ttrTimeouts.set(jobId, ttrTimeout);
 
+    // Extract job name from payload
+    const jobData = JSON.parse(job.payload);
+    
     return {
       id: jobId,
+      name: jobData.name,
       payload: job.payload,
       meta: job.meta
     };

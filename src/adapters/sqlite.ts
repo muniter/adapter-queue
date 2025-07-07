@@ -33,7 +33,7 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         payload BLOB NOT NULL,
         ttr INTEGER DEFAULT 300,
-        delay INTEGER DEFAULT 0,
+        delay_seconds INTEGER DEFAULT 0,
         priority INTEGER DEFAULT 0,
         push_time INTEGER NOT NULL,
         delay_time INTEGER,
@@ -62,7 +62,7 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     const now = new Date();
     const stmt = this.db.prepare(`
       INSERT INTO jobs (
-        payload, ttr, delay, priority, push_time, 
+        payload, ttr, delay_seconds, priority, push_time, 
         delay_time, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
@@ -70,10 +70,10 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     const result = stmt.run(
       payload,
       meta.ttr || 300,
-      meta.delay || 0,
+      meta.delaySeconds || 0,
       meta.priority || 0,
       now.getTime(),
-      meta.delay ? now.getTime() + meta.delay * 1000 : null,
+      meta.delaySeconds ? now.getTime() + meta.delaySeconds * 1000 : null,
       'waiting'
     );
 
@@ -143,7 +143,7 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
       payload: job.payload,
       meta: {
         ttr: job.ttr,
-        delay: job.delay,
+        delaySeconds: job.delay_seconds,
         priority: job.priority,
         pushedAt: new Date(job.push_time),
         reservedAt: new Date(now)

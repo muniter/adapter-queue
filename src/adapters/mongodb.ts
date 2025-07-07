@@ -60,10 +60,10 @@ export class MongoDatabaseAdapter implements DatabaseAdapter {
     const res = await this.col.insertOne({
       payload,
       ttr: meta.ttr ?? 300,
-      delay: meta.delay ?? 0,
+      delaySeconds: meta.delaySeconds ?? 0,
       priority: meta.priority ?? 0,
       pushTime: now,
-      delayTime: meta.delay ? new Date(now.getTime() + meta.delay * 1000) : null,
+      delayTime: meta.delaySeconds ? new Date(now.getTime() + meta.delaySeconds * 1000) : null,
       status: 'waiting',
       attempt: 0
     });
@@ -115,7 +115,7 @@ export class MongoDatabaseAdapter implements DatabaseAdapter {
       payload: Buffer.from(doc.payload?.buffer || doc.payload || []), // Handle Binary/Buffer/empty
       meta: {
         ttr: doc.ttr,
-        delay: doc.delay,
+        delaySeconds: doc.delaySeconds,
         priority: doc.priority,
         pushedAt: doc.pushTime,
         reservedAt: now
