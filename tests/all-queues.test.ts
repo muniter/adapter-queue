@@ -132,7 +132,7 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
         supportsStatus: true,
       },
       beforeAll: async () => {
-        redisContainer = await new GenericContainer("redis:7-alpine")
+        redisContainer = await new GenericContainer("valkey/valkey:7-alpine")
           .withExposedPorts(6379)
           .start();
 
