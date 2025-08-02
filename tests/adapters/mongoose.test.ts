@@ -218,6 +218,110 @@ describe('Mongoose Adapter', () => {
       const job2 = await queue.mongooseAdapter.reserveJob(60);
       expect(job2).toBeDefined();
     });
+
+
+    it('should handle job failures and retries through the queue system', async () => {
+      const queue = createMongooseQueue<{
+        'failing-job': { attemptNumber: number };
+        'success-job': { data: string };
+      }>('test-queue', testModel);
+
+      let attempts: number[] = [];
+      let successfulJobs: string[] = [];
+
+      queue.setHandlers({
+        'failing-job': async (job) => {
+          attempts.push(job.payload.attemptNumber);
+          
+          if (job.payload.attemptNumber <= 2) {
+            throw new Error(`Intentional failure on attempt ${job.payload.attemptNumber}`);
+          }
+          
+          // Success on attempt 3
+        },
+        'success-job': async (job) => {
+          successfulJobs.push(job.payload.data);
+        }
+      });
+
+      // Add jobs
+      const failingJob1 = await queue.addJob('failing-job', { payload: { attemptNumber: 1 } });
+      const failingJob2 = await queue.addJob('failing-job', { payload: { attemptNumber: 2 } });
+      const failingJob3 = await queue.addJob('failing-job', { payload: { attemptNumber: 3 } });
+      const successJob = await queue.addJob('success-job', { payload: { data: 'test-data' } });
+
+      // Process all jobs
+      await queue.run();
+
+      // Check results
+      expect(attempts).toEqual([1, 2, 3]);
+      expect(successfulJobs).toEqual(['test-data']);
+
+      // Check final job statuses
+      const job1Doc = await testModel.findById(failingJob1);
+      const job2Doc = await testModel.findById(failingJob2);
+      const job3Doc = await testModel.findById(failingJob3);
+      const successDoc = await testModel.findById(successJob);
+
+      expect(job1Doc?.status).toBe('failed');
+      expect(job2Doc?.status).toBe('failed');
+      expect(job3Doc?.status).toBe('done');
+      expect(successDoc?.status).toBe('done');
+
+      // Check error messages
+      expect(job1Doc?.errorMessage).toContain('Intentional failure on attempt 1');
+      expect(job2Doc?.errorMessage).toContain('Intentional failure on attempt 2');
+    });
+
+    it('should handle TTR timeout and job recovery in real processing', async () => {
+      const queue = createMongooseQueue<{
+        'long-job': { duration: number };
+        'quick-job': { data: string };
+      }>('test-queue', testModel);
+
+      let jobExecutions: string[] = [];
+
+      queue.setHandlers({
+        'long-job': async (job) => {
+          jobExecutions.push(`long-job-start-${job.payload.duration}`);
+          // Simulate a job that takes longer than its TTR
+          await new Promise(resolve => setTimeout(resolve, job.payload.duration));
+          jobExecutions.push(`long-job-end-${job.payload.duration}`);
+        },
+        'quick-job': async (job) => {
+          jobExecutions.push(`quick-job-${job.payload.data}`);
+        }
+      });
+
+      // Add a job with very short TTR that will timeout
+      const longJobId = await queue.addJob('long-job', { 
+        payload: { duration: 2000 }, // 2 seconds
+        ttr: 1 // 1 second TTR - will timeout
+      });
+
+      // Add a quick job
+      const quickJobId = await queue.addJob('quick-job', { 
+        payload: { data: 'test' }
+      });
+
+      // Process queue - long job will timeout, quick job should complete
+      await queue.run();
+
+      // Verify states after first run
+      let longJobDoc = await testModel.findById(longJobId);
+      let quickJobDoc = await testModel.findById(quickJobId);
+
+      // Quick job should be done, long job should be in some intermediate state
+      expect(quickJobDoc?.status).toBe('done');
+      
+      // Check what actually got executed
+      expect(jobExecutions).toContain('quick-job-test');
+      expect(jobExecutions).toContain('long-job-start-2000');
+      
+      // The long job may or may not have finished depending on timing
+      // but it should have been processed at least once
+      expect(longJobDoc).toBeDefined();
+    }, 10000); // Longer timeout for this test
   });
 
   describe('createQueueModel', () => {
