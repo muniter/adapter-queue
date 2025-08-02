@@ -6,7 +6,6 @@ export type {
   QueueMessage, 
   QueueEvent,
   JobData,
-  JobOptions,
   BaseJobRequest,
   BaseJobOptions,
   DbJobRequest,

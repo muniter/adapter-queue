@@ -1,5 +1,5 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage, BaseJobRequest } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
 // Interface for our internal Redis operations

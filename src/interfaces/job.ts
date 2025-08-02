@@ -113,6 +113,15 @@ export interface InMemoryJobOptions extends BaseJobOptions {
   priority?: number;
 }
 
+export interface JobRequestFull<TPayload> extends BaseJobOptions {
+  /** Job priority - higher numbers = higher priority (processed first) */
+  priority?: number;
+  /** Job delay - number of seconds to delay job execution from now */
+  delaySeconds?: number;
+  /** Job payload */
+  payload: TPayload;
+}
+
 // Combined interfaces that include payload for the new API
 export interface BaseJobRequest<TPayload> extends BaseJobOptions {
   /** Job payload */

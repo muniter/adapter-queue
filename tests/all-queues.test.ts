@@ -14,6 +14,7 @@ import os from "os";
 import { InMemoryQueue } from "../src/drivers/memory.js";
 import { FileQueue } from "../src/drivers/file.js";
 import type { Queue } from "../src/core/queue.js";
+import type { JobRequestFull } from "../src/interfaces/job.ts";
 
 interface TestJobs {
   "simple-job": { data: string };
@@ -87,16 +88,12 @@ const drivers: Array<
         // Create unique directory for each queue instance
         const queueDir = path.join(
           baseTempDir,
-          `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          `queue-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
         );
         return new FileQueue<TestJobs>({
           name: "test-queue",
           path: queueDir,
         });
-      },
-      cleanup: async (queue) => {
-        // FileQueue cleanup is handled by the afterAll hook
-        // Individual queue cleanup not needed as each gets unique directory
       },
     };
   },
@@ -133,7 +130,7 @@ configs.forEach((config) => {
   const features = config.features;
 
   describe(`Queue Driver: ${config.name}`, () => {
-    let queue: Queue<TestJobs>;
+    let queue: Queue<TestJobs, JobRequestFull<TestJobs[keyof TestJobs]>>;
 
     beforeAll(async () => {
       // Await config if it's a promise
@@ -186,12 +183,12 @@ configs.forEach((config) => {
           });
 
           // High priority job should be processed first
-          const reserved1 = await (queue as any).reserve(0);
-          expect(reserved1).not.toBeNull();
+          const reserved1 = await queue["reserve"](0);
+          assert(reserved1);
           expect(reserved1.id).toBe(highId);
 
-          const reserved2 = await (queue as any).reserve(0);
-          expect(reserved2).not.toBeNull();
+          const reserved2 = await queue["reserve"](0);
+          assert(reserved2);
           expect(reserved2.id).toBe(lowId);
         }
       );
@@ -208,14 +205,14 @@ configs.forEach((config) => {
           expect(status).toBe("waiting");
 
           // Should not be immediately available
-          const reserved1 = await (queue as any).reserve(0);
+          const reserved1 = await queue["reserve"](0);
           expect(reserved1).toBeNull();
 
           // Should be available after delay
           await new Promise((resolve) => setTimeout(resolve, 1100));
 
-          const reserved2 = await (queue as any).reserve(0);
-          expect(reserved2).not.toBeNull();
+          const reserved2 = await queue["reserve"](0);
+          assert(reserved2);
           expect(reserved2.id).toBe(id);
         }
       );
@@ -342,7 +339,7 @@ configs.forEach((config) => {
 
         // Reserve the job
         const reserved1 = await queue["reserve"](0);
-        expect(reserved1).not.toBeNull();
+        assert(reserved1);
         expect(reserved1.id).toBe(id);
 
         // Job should be in reserved state
@@ -376,10 +373,10 @@ configs.forEach((config) => {
           payload: { data: "test" },
         });
 
-        const reserved = await (queue as any).reserve(0);
-        expect(reserved).not.toBeNull();
+        const reserved = await queue["reserve"](0);
+        assert(reserved);
 
-        await (queue as any).completeJob(reserved);
+        await queue["completeJob"](reserved);
 
         const status = await queue.status(id);
         expect(status).toBe("done");
@@ -390,11 +387,11 @@ configs.forEach((config) => {
           payload: { data: "test" },
         });
 
-        const reserved = await (queue as any).reserve(0);
-        expect(reserved).not.toBeNull();
+        const reserved = await queue["reserve"](0);
+        assert(reserved);
 
         const error = new Error("Job failed");
-        await (queue as any).failJob(reserved, error);
+        await queue["failJob"](reserved, error);
 
         const status = await queue.status(id);
         expect(status).toBe("done");

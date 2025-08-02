@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, JobOptions, BaseJobRequest, JobContext, JobHandlers } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, QueueEvent, JobData, BaseJobRequest, JobContext, JobHandlers } from '../interfaces/job.ts';
 import type { QueuePlugin, QueueOptions } from '../interfaces/plugin.ts';
 
 /**
