@@ -7,8 +7,8 @@ import {
   createQueueModel,
   MongooseDatabaseAdapter,
   QueueJobSchema 
-} from '../../src/adapters/mongoose.ts';
-import type { IQueueJob } from '../../src/adapters/mongoose.ts';
+} from '../../src/drivers/mongoose.ts';
+import type { IQueueJob } from '../../src/drivers/mongoose.ts';
 import type { JobMeta } from '../../src/interfaces/job.ts';
 
 describe('Mongoose Adapter', () => {

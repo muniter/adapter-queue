@@ -58,29 +58,37 @@
       "import": "./dist/src/index.js",
       "types": "./dist/src/index.d.ts"
     },
-    "./sqlite": {
-      "import": "./dist/src/adapters/sqlite.js",
-      "types": "./dist/src/adapters/sqlite.d.ts"
+    "./drivers/sqlite": {
+      "import": "./dist/src/drivers/sqlite.js",
+      "types": "./dist/src/drivers/sqlite.d.ts"
     },
-    "./redis": {
-      "import": "./dist/src/adapters/redis.js",
-      "types": "./dist/src/adapters/redis.d.ts"
+    "./drivers/redis": {
+      "import": "./dist/src/drivers/redis.js",
+      "types": "./dist/src/drivers/redis.d.ts"
     },
-    "./sqs": {
-      "import": "./dist/src/adapters/sqs.js",
-      "types": "./dist/src/adapters/sqs.d.ts"
+    "./drivers/sqs": {
+      "import": "./dist/src/drivers/sqs.js",
+      "types": "./dist/src/drivers/sqs.d.ts"
+    },
+    "./drivers/db": {
+      "import": "./dist/src/drivers/db.js",
+      "types": "./dist/src/drivers/db.d.ts"
+    },
+    "./drivers/file": {
+      "import": "./dist/src/drivers/file.js",
+      "types": "./dist/src/drivers/file.d.ts"
+    },
+    "./drivers/memory": {
+      "import": "./dist/src/drivers/memory.js",
+      "types": "./dist/src/drivers/memory.d.ts"
+    },
+    "./drivers/mongoose": {
+      "import": "./dist/src/drivers/mongoose.js",
+      "types": "./dist/src/drivers/mongoose.d.ts"
     },
     "./plugins/ecs-protection-manager": {
       "import": "./dist/src/plugins/ecs-protection-manager.js",
       "types": "./dist/src/plugins/ecs-protection-manager.d.ts"
-    },
-    "./memory": {
-      "import": "./dist/src/adapters/memory.js",
-      "types": "./dist/src/adapters/memory.d.ts"
-    },
-    "./mongoose": {
-      "import": "./dist/src/adapters/mongoose.js",
-      "types": "./dist/src/adapters/mongoose.d.ts"
     }
   },
   "peerDependencies": {

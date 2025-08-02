@@ -21,10 +21,10 @@ import {
 } from "@aws-sdk/client-sqs";
 import { InMemoryQueue } from "../src/drivers/memory.js";
 import { FileQueue } from "../src/drivers/file.js";
-import { createSQLiteQueue } from "../src/adapters/sqlite.js";
+import { createSQLiteQueue } from "../src/drivers/sqlite.js";
 import { RedisQueue } from "../src/drivers/redis.js";
 import { SqsQueue } from "../src/drivers/sqs.js";
-import { createMongooseQueue } from "../src/adapters/mongoose.js";
+import { createMongooseQueue } from "../src/drivers/mongoose.js";
 import mongoose from "mongoose";
 import type { Queue } from "../src/core/queue.js";
 import type { JobRequestFull } from "../src/interfaces/job.ts";
