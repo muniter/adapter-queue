@@ -220,14 +220,6 @@ export class MongooseQueue<TJobMap = Record<string, unknown>> extends DbQueue<TJ
   }
 }
 
-// Factory function to create a Mongoose queue
-export function createMongooseQueue<TJobMap = Record<string, unknown>>(
-  name: string,
-  model?: Model<IQueueJob>
-): MongooseQueue<TJobMap> {
-  const queueModel = model || createQueueModel();
-  return new MongooseQueue<TJobMap>({ model: queueModel, name });
-}
 
 // Create a default queue model
 export function createQueueModel(

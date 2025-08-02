@@ -1,11 +1,13 @@
-import { createSQLiteQueue } from "adapter-queue/sqlite";
+import { SQLiteQueue } from "adapter-queue/drivers/sqlite";
+import Database from "better-sqlite3";
 
 export interface GeneralJobs {
     'process-image': { url: string; width: number; height: number };
     'generate-report': { type: string; period: string };
 }
 
-export const generalQueue = createSQLiteQueue<GeneralJobs>('general-queue', 'queue.db');
+const db = new Database('queue.db');
+export const generalQueue = new SQLiteQueue<GeneralJobs>({ database: db, name: 'general-queue' });
 
 // Register job handlers for general queue
 generalQueue.setHandlers({

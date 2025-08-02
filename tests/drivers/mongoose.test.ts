@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { GenericContainer } from 'testcontainers';
 import type { StartedTestContainer } from 'testcontainers';
 import { 
-  createMongooseQueue, 
+  MongooseQueue,
   createQueueModel,
   MongooseDatabaseAdapter,
   QueueJobSchema 
@@ -148,23 +148,24 @@ describe('Mongoose Adapter', () => {
     });
   });
 
-  describe('createMongooseQueue', () => {
+  describe('MongooseQueue', () => {
     it('should create a queue with default model', () => {
-      const queue = createMongooseQueue('test-queue');
+      const model = createQueueModel();
+      const queue = new MongooseQueue({ model, name: 'test-queue' });
       expect(queue).toBeDefined();
       expect(queue.name).toBe('test-queue');
     });
 
     it('should create a queue with custom model', () => {
-      const queue = createMongooseQueue('test-queue', testModel);
+      const queue = new MongooseQueue({ model: testModel, name: 'test-queue' });
       expect(queue).toBeDefined();
       expect(queue.name).toBe('test-queue');
     });
 
     it('should push and retrieve jobs', async () => {
-      const queue = createMongooseQueue<{
+      const queue = new MongooseQueue<{
         'test-job': { message: string };
-      }>('test-queue', testModel);
+      }>({ model: testModel, name: 'test-queue' });
 
       let processedMessage = '';
       queue.setHandlers({
@@ -183,9 +184,9 @@ describe('Mongoose Adapter', () => {
     });
 
     it('should handle job priorities', async () => {
-      const queue = createMongooseQueue<{
+      const queue = new MongooseQueue<{
         'priority-job': { priority: number };
-      }>('test-queue', testModel);
+      }>({ model: testModel, name: 'test-queue' });
 
       // Push jobs with different priorities
       await queue.addJob('priority-job', { payload: { priority: 1 }, priority: 1 });
@@ -200,9 +201,9 @@ describe('Mongoose Adapter', () => {
     });
 
     it('should handle delayed jobs', async () => {
-      const queue = createMongooseQueue<{
+      const queue = new MongooseQueue<{
         'delayed-job': { when: string };
-      }>('test-queue', testModel);
+      }>({ model: testModel, name: 'test-queue' });
 
       // Push a delayed job
       await queue.addJob('delayed-job', { payload: { when: 'future' }, delaySeconds: 2 });
@@ -221,10 +222,10 @@ describe('Mongoose Adapter', () => {
 
 
     it('should handle job failures and retries through the queue system', async () => {
-      const queue = createMongooseQueue<{
+      const queue = new MongooseQueue<{
         'failing-job': { attemptNumber: number };
         'success-job': { data: string };
-      }>('test-queue', testModel);
+      }>({ model: testModel, name: 'test-queue' });
 
       let attempts: number[] = [];
       let successfulJobs: string[] = [];
@@ -274,10 +275,10 @@ describe('Mongoose Adapter', () => {
     });
 
     it('should handle TTR timeout and job recovery in real processing', async () => {
-      const queue = createMongooseQueue<{
+      const queue = new MongooseQueue<{
         'long-job': { duration: number };
         'quick-job': { data: string };
-      }>('test-queue', testModel);
+      }>({ model: testModel, name: 'test-queue' });
 
       let jobExecutions: string[] = [];
 
@@ -349,7 +350,7 @@ describe('Mongoose Adapter', () => {
 
   describe('Integration with Mongoose features', () => {
     it('should work with Mongoose queries', async () => {
-      const queue = createMongooseQueue('test-queue', testModel);
+      const queue = new MongooseQueue({ model: testModel, name: 'test-queue' });
 
       await queue.addJob('test-job', { payload: { data: 'test1' } });
       await queue.addJob('test-job', { payload: { data: 'test2' } });
@@ -364,7 +365,7 @@ describe('Mongoose Adapter', () => {
     });
 
     it('should maintain Mongoose document structure', async () => {
-      const queue = createMongooseQueue('test-queue', testModel);
+      const queue = new MongooseQueue({ model: testModel, name: 'test-queue' });
       
       const jobId = await queue.addJob('test-job', { payload: { test: true } });
 

@@ -236,11 +236,6 @@ export class SQLiteQueue<T = Record<string, any>> extends DbQueue<T> {
   }
 }
 
-// Convenience factory for better-sqlite3
-export function createSQLiteQueue<T = Record<string, any>>(name: string, filename: string, options?: Database.Options): SQLiteQueue<T> {
-  const db = new Database(filename, options);
-  return new SQLiteQueue<T>({ database: db, name });
-}
 
 // Re-export for convenience
 export { DbQueue };

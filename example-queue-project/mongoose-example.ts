@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { createMongooseQueue, QueueJob } from '../src/adapters/mongoose.ts';
+import { MongooseQueue, QueueJob, createQueueModel } from '../src/drivers/mongoose.ts';
 
 // Define your job types
 interface MyJobs {
@@ -21,7 +21,8 @@ async function main() {
   console.log('Connected to MongoDB');
 
   // Create a queue instance
-  const queue = createMongooseQueue<MyJobs>('my-app');
+  const model = createQueueModel();
+  const queue = new MongooseQueue<MyJobs>({ model, name: 'my-app' });
 
   // Set up job handlers
   queue.setHandlers({
@@ -78,7 +79,7 @@ async function customModelExample(): Promise<void> {
   const JobModel = mongoose.model('CustomJob', QueueJob.schema, 'custom_jobs');
   
   // Create queue with custom model
-  const queue = createMongooseQueue<MyJobs>('custom-app', JobModel);
+  const queue = new MongooseQueue<MyJobs>({ model: JobModel, name: 'custom-app' });
   
   // Set handlers and use as normal
   queue.setHandlers({
@@ -100,7 +101,8 @@ async function customModelExample(): Promise<void> {
 async function continuousProcessingExample(): Promise<void> {
   await mongoose.connect('mongodb://localhost:27017/queue-example');
   
-  const queue = createMongooseQueue<MyJobs>('continuous-queue');
+  const model = createQueueModel();
+  const queue = new MongooseQueue<MyJobs>({ model, name: 'continuous-queue' });
   
   queue.setHandlers({
     'send-email': async (job) => {

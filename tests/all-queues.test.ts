@@ -21,10 +21,11 @@ import {
 } from "@aws-sdk/client-sqs";
 import { InMemoryQueue } from "../src/drivers/memory.js";
 import { FileQueue } from "../src/drivers/file.js";
-import { createSQLiteQueue } from "../src/drivers/sqlite.js";
+import { SQLiteQueue } from "../src/drivers/sqlite.js";
+import Database from "better-sqlite3";
 import { RedisQueue } from "../src/drivers/redis.js";
 import { SqsQueue } from "../src/drivers/sqs.js";
-import { createMongooseQueue } from "../src/drivers/mongoose.js";
+import { MongooseQueue, createQueueModel } from "../src/drivers/mongoose.js";
 import mongoose from "mongoose";
 import type { Queue } from "../src/core/queue.js";
 import type { JobRequestFull } from "../src/interfaces/job.ts";
@@ -110,7 +111,8 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
     },
     createQueue: async () => {
       // Use in-memory SQLite database for tests - much faster and no file cleanup needed
-      return createSQLiteQueue<TestJobs>("test-queue", ":memory:");
+      const db = new Database(":memory:");
+      return new SQLiteQueue<TestJobs>({ database: db, name: "test-queue" });
     },
     cleanup: async (queue) => {
       // Clear all jobs from the in-memory database
@@ -267,7 +269,8 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
         }
       },
       createQueue: async () => {
-        return createMongooseQueue<TestJobs>("test-queue");
+        const model = createQueueModel();
+        return new MongooseQueue<TestJobs>({ model, name: "test-queue" });
       },
       cleanup: async () => {
         // Clean up MongoDB collections between tests
