@@ -78,73 +78,68 @@ export interface BaseJobOptions {
   ttr?: number;
 }
 
+// Feature interfaces for composable job options
+export interface WithPriority {
+  /** Job priority - higher numbers = higher priority (processed first) */
+  priority?: number;
+}
+
+export interface WithDelay {
+  /** Number of seconds to delay job execution from now */
+  delaySeconds?: number;
+}
+
 // Full options interface (for internal use)
-export interface JobOptions extends BaseJobOptions {
-  /** Number of seconds to delay job execution from now */
-  delaySeconds?: number;
-  /** Job priority - higher numbers = higher priority (processed first) */
-  priority?: number;
-}
+export interface JobOptions extends BaseJobOptions, WithPriority, WithDelay {}
 
-// Driver-specific options interfaces (without payload)
-export interface DbJobOptions extends BaseJobOptions {
-  // DB adapters may or may not support delay/priority - we allow them for flexibility
-  // The specific DatabaseAdapter implementation determines actual support
-  /** Number of seconds to delay job execution from now. Support varies by database adapter. */
-  delaySeconds?: number;
-  /** Job priority - higher numbers = higher priority. Support varies by database adapter. */
-  priority?: number;
-}
 
-export interface SqsJobOptions extends BaseJobOptions {
-  /** Number of seconds to delay job execution from now (0-900 seconds max for SQS) */
-  delaySeconds?: number;
-}
-
-export interface FileJobOptions extends BaseJobOptions {
-  /** Number of seconds to delay job execution from now */
-  delaySeconds?: number;
-}
-
-export interface InMemoryJobOptions extends BaseJobOptions {
-  /** Number of seconds to delay job execution from now */
-  delaySeconds?: number;
-  /** Job priority - higher numbers = higher priority (processed first) */
-  priority?: number;
-}
-
-export interface JobRequestFull<TPayload> extends BaseJobOptions {
-  /** Job priority - higher numbers = higher priority (processed first) */
-  priority?: number;
-  /** Job delay - number of seconds to delay job execution from now */
-  delaySeconds?: number;
+export interface JobRequestFull<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
   /** Job payload */
   payload: TPayload;
 }
 
-// Combined interfaces that include payload for the new API
+// Driver-specific job request interfaces using feature composition
+// Each interface defines what features the driver supports
+
 export interface BaseJobRequest<TPayload> extends BaseJobOptions {
   /** Job payload */
   payload: TPayload;
 }
 
-export interface DbJobRequest<TPayload> extends DbJobOptions {
+export interface DbJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
   /** Job payload */
   payload: TPayload;
+  // DB adapters may or may not support delay/priority - we allow them for flexibility
+  // The specific DatabaseAdapter implementation determines actual support
 }
 
-export interface SqsJobRequest<TPayload> extends SqsJobOptions {
+export interface SqsJobRequest<TPayload> extends BaseJobOptions, WithDelay {
   /** Job payload */
   payload: TPayload;
+  // SQS supports delays (0-900 seconds max) but not priority ordering
 }
 
-export interface FileJobRequest<TPayload> extends FileJobOptions {
+export interface FileJobRequest<TPayload> extends BaseJobOptions, WithDelay {
   /** Job payload */
   payload: TPayload;
+  // File queue supports delays but not priority ordering
 }
 
-export interface InMemoryJobRequest<TPayload> extends InMemoryJobOptions {
+export interface InMemoryJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
   /** Job payload */
   payload: TPayload;
+  // In-memory queue supports both priority and delays
+}
+
+export interface RedisJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // Redis queue supports both priority and delays
+}
+
+export interface MongooseJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // Mongoose/MongoDB queue supports both priority and delays
 }
 

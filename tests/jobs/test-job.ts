@@ -1,4 +1,4 @@
-import type { Queue } from '../../src/index.ts';
+import type { Queue } from '../../src/core/queue.ts';
 
 // Simple test job handler functions (not classes)
 export const simpleJobHandler = async (payload: { data: string }): Promise<string> => {

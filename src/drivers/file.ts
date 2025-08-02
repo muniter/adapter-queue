@@ -1,9 +1,12 @@
 import { promises as fs } from 'fs';
 import { open } from 'fs/promises';
 import path from 'path';
-import { Queue } from '../core/queue.js';
-import type { QueueMessage, JobMeta, JobStatus, FileJobRequest } from '../interfaces/job.js';
-import type { QueueOptions } from '../interfaces/plugin.js';
+import { Queue } from '../core/queue.ts';
+import type { QueueMessage, JobMeta, JobStatus, FileJobRequest } from '../interfaces/job.ts';
+import type { QueueOptions } from '../interfaces/plugin.ts';
+
+// Re-export job interface for this driver
+export type { FileJobRequest } from '../interfaces/job.ts';
 
 interface IndexData {
   lastId: number;

@@ -3,6 +3,9 @@ import type { JobStatus, JobMeta, QueueMessage, DbJobRequest } from '../interfac
 import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
+// Re-export job interface for this driver
+export type { DbJobRequest } from '../interfaces/job.ts';
+
 export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJobRequest<any>> {
   constructor(
     private db: DatabaseAdapter,

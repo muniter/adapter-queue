@@ -252,3 +252,6 @@ export const QueueJob = createQueueModel();
 
 // Re-export for convenience
 export { DbQueue };
+
+// Re-export job interface for Mongoose adapter
+export type { MongooseJobRequest } from '../interfaces/job.ts';

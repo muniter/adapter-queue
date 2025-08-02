@@ -2,6 +2,9 @@ import { Queue } from '../core/queue.ts';
 import type { JobStatus, JobMeta, QueueMessage, InMemoryJobRequest } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
+// Re-export job interface for this driver
+export type { InMemoryJobRequest } from '../interfaces/job.ts';
+
 interface InMemoryJobRecord {
   id: string;
   payload: string;

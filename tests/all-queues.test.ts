@@ -173,7 +173,7 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
       name: "SqsQueue",
       features: {
         supportsPriority: false, // SQS doesn't support priority ordering
-        supportsDelayedJobs: true, // ElasticMQ supports DelaySeconds
+        supportsDelayedJobs: true,
         supportsStatus: false, // SQS doesn't support status queries
       },
       beforeAll: async () => {

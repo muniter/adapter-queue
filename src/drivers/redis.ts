@@ -1,6 +1,9 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, RedisJobRequest } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
+
+// Re-export job interface for this driver
+export type { RedisJobRequest } from '../interfaces/job.ts';
 
 
 // Type-safe interface for Redis client based on the popular 'redis' npm package
@@ -36,7 +39,7 @@ export interface RedisClient {
 }
 
 
-export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
+export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, RedisJobRequest<any>> {
   private messagesKey: string;
   private waitingKey: string;
   private delayedKey: string;

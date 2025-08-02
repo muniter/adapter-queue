@@ -18,6 +18,9 @@ import type {
 } from "../interfaces/job.ts";
 import type { QueueOptions } from "../interfaces/plugin.ts";
 
+// Re-export job interface for this driver
+export type { SqsJobRequest } from "../interfaces/job.ts";
+
 interface SqsClient {
   send: SQSClient["send"];
 }
