@@ -183,11 +183,16 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
   async getJobStatus(id: string): Promise<JobStatus | null> {
     const doc = await this.model.findOne(
       { _id: new Types.ObjectId(id) }, 
-      { status: 1 }
+      { status: 1, delayTime: 1 }
     ).exec();
     
     if (!doc) {
       return null;
+    }
+    
+    // Check if job is delayed
+    if (doc.status === 'waiting' && doc.delayTime && doc.delayTime > new Date()) {
+      return 'delayed';
     }
     
     switch (doc.status) {

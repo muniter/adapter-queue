@@ -18,6 +18,7 @@ export interface RedisClient {
   zAdd(key: string, member: { score: number; value: string }): Promise<number>;
   zRem(key: string, ...members: string[]): Promise<number>;
   zRangeByScore(key: string, min: number | string, max: number | string): Promise<string[]>;
+  zScore(key: string, member: string): Promise<number | null>;
   zPopMax(key: string): Promise<{ value: string; score: number } | null>;
   del(...keys: string[]): Promise<number>;
 }
@@ -234,6 +235,11 @@ export class RedisDatabaseAdapter implements DatabaseAdapter {
     
     switch (status) {
       case 'waiting':
+        // Check if job is in delayed set
+        const isDelayed = await this.client.zScore(`${this.keyPrefix}:delayed`, id);
+        if (isDelayed !== null && isDelayed > Math.floor(Date.now() / 1000)) {
+          return 'delayed';
+        }
         return 'waiting';
       case 'reserved':
         return 'reserved';

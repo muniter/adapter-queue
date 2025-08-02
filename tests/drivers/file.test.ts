@@ -61,7 +61,7 @@ describe('FileQueue', () => {
       });
       
       const status = await queue.status(id);
-      expect(status).toBe('waiting');
+      expect(status).toBe('delayed');
     });
 
     it('should create job file', async () => {

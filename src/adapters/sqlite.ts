@@ -186,10 +186,15 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
   }
 
   async getJobStatus(id: string): Promise<JobStatus | null> {
-    const stmt = this.db.prepare(`SELECT status FROM jobs WHERE id = ?`);
-    const job = stmt.get(parseInt(id)) as any;
+    const stmt = this.db.prepare(`SELECT status, delay_time FROM jobs WHERE id = ?`);
+    const job = stmt.get(parseInt(id)) as { status: string; delay_time: number | null };
 
     if (!job) return null;
+    
+    // Check if job is delayed
+    if (job.status === 'waiting' && job.delay_time && job.delay_time > Date.now()) {
+      return 'delayed';
+    }
     
     switch (job.status) {
       case 'waiting':

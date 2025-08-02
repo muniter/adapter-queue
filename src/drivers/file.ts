@@ -184,13 +184,18 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
     return status || 'done';
   }
 
-  async getJobStatus(id: string): Promise<'waiting' | 'reserved' | 'done' | null> {
+  async getJobStatus(id: string): Promise<'waiting' | 'reserved' | 'done' | 'delayed' | null> {
     const status = await this.touchIndex(async (data) => {
       if (data.waiting.some(item => item[0] === id)) {
         return 'waiting';
       }
       if (data.delayed.some(item => item[0] === id)) {
-        return 'waiting';
+        // Check if still delayed (time is in the future)
+        const delayedItem = data.delayed.find(item => item[0] === id);
+        if (delayedItem && delayedItem[2] > Math.floor(Date.now() / 1000)) {
+          return 'delayed';
+        }
+        return 'waiting'; // Delay expired, now waiting
       }
       if (data.reserved.some(item => item[0] === id)) {
         return 'reserved';

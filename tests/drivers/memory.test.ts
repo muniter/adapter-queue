@@ -63,7 +63,7 @@ describe('InMemoryQueue', () => {
       });
       
       const status = await queue.status(id);
-      expect(status).toBe('waiting');
+      expect(status).toBe('delayed');
 
       // Should not be immediately available
       const reserved1 = await queue['reserve'](0);

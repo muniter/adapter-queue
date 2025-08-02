@@ -187,6 +187,10 @@ export class InMemoryQueue<TJobMap = Record<string, any>> extends Queue<TJobMap,
     
     switch (job.status) {
       case 'waiting':
+        // Check if job is currently delayed
+        if (job.delayTime && job.delayTime > Date.now()) {
+          return 'delayed';
+        }
         return 'waiting';
       case 'reserved':
         return 'reserved';

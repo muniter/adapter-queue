@@ -2,122 +2,48 @@ import { Queue } from '../core/queue.ts';
 import type { JobStatus, JobMeta, QueueMessage } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
-// Interface for our internal Redis operations
-interface RedisOperations {
-  rpush(key: string, ...values: string[]): Promise<number>;
-  rpop(key: string): Promise<string | null>;
-  brpop(timeout: number, ...keys: string[]): Promise<[string, string] | null>;
-  llen(key: string): Promise<number>;
-  zadd(key: string, score: number, member: string): Promise<number>;
-  zrem(key: string, ...members: string[]): Promise<number>;
-  zrevrangebyscore(key: string, max: number | string, min: number | string, limit?: { offset: number; count: number }): Promise<string[]>;
-  zscore(key: string, member: string): Promise<string | null>;
-  hset(key: string, field: string, value: string): Promise<number>;
-  hget(key: string, field: string): Promise<string | null>;
-  hdel(key: string, ...fields: string[]): Promise<number>;
-  hincrby(key: string, field: string, increment: number): Promise<number>;
-  incr(key: string): Promise<number>;
-  del(...keys: string[]): Promise<number>;
-  exists(...keys: string[]): Promise<number>;
-}
 
-// Type for the redis package client (simplified - we'll use duck typing)
+// Type-safe interface for Redis client based on the popular 'redis' npm package
 export interface RedisClient {
-  [key: string]: any; // Allow any redis client that has the methods we need
+  // Counter operations
+  incr(key: string): Promise<number>;
+  
+  // Hash operations
+  hSet(key: string, field: string, value: string): Promise<number>;
+  hGet(key: string, field: string): Promise<string | null>;
+  hDel(key: string, fields: string[]): Promise<number>;
+  hIncrBy(key: string, field: string, increment: number): Promise<number>;
+  
+  // Sorted set operations
+  zAdd(key: string, members: { score: number; value: string }): Promise<number>;
+  zRem(key: string, members: string[]): Promise<number>;
+  zRangeByScore(
+    key: string, 
+    min: number | string, 
+    max: number | string, 
+    options?: { REV?: boolean; LIMIT?: { offset: number; count: number } }
+  ): Promise<string[]>;
+  zRange(
+    key: string, 
+    start: number, 
+    stop: number, 
+    options?: { REV?: boolean }
+  ): Promise<string[]>;
+  zScore(key: string, member: string): Promise<number | null>;
+  
+  // General operations
+  del(keys: string[]): Promise<number>;
 }
 
-// Adapter to convert redis npm package to our internal interface
-class RedisAdapter implements RedisOperations {
-  constructor(private client: RedisClient) {}
 
-  async rpush(key: string, ...values: string[]): Promise<number> {
-    return await this.client.rPush(key, values);
-  }
-
-  async rpop(key: string): Promise<string | null> {
-    return await this.client.rPop(key);
-  }
-
-  async brpop(timeout: number, ...keys: string[]): Promise<[string, string] | null> {
-    // Redis client expects separate arguments: (keys, timeout)
-    const result = await this.client.brPop(keys, timeout);
-    if (!result) return null;
-    return [result.key, result.element];
-  }
-
-  async llen(key: string): Promise<number> {
-    return await this.client.lLen(key);
-  }
-
-  async zadd(key: string, score: number, member: string): Promise<number> {
-    return await this.client.zAdd(key, { score, value: member });
-  }
-
-  async zrem(key: string, ...members: string[]): Promise<number> {
-    return await this.client.zRem(key, members);
-  }
-
-  async zrevrangebyscore(key: string, max: number | string, min: number | string, limit?: { offset: number; count: number }): Promise<string[]> {
-    const options: any = { REV: true };
-    if (limit) {
-      options.LIMIT = { offset: limit.offset, count: limit.count };
-    }
-    // Use zRangeByScore with REV option for reverse range
-    return await this.client.zRangeByScore(key, min, max, options);
-  }
-
-  async zscore(key: string, member: string): Promise<string | null> {
-    const score = await this.client.zScore(key, member);
-    return score !== null ? score.toString() : null;
-  }
-
-  async hset(key: string, field: string, value: string): Promise<number> {
-    return await this.client.hSet(key, field, value);
-  }
-
-  async hget(key: string, field: string): Promise<string | null> {
-    return await this.client.hGet(key, field);
-  }
-
-  async hdel(key: string, ...fields: string[]): Promise<number> {
-    return await this.client.hDel(key, fields);
-  }
-
-  async hincrby(key: string, field: string, increment: number): Promise<number> {
-    return await this.client.hIncrBy(key, field, increment);
-  }
-
-  async incr(key: string): Promise<number> {
-    return await this.client.incr(key);
-  }
-
-  async del(...keys: string[]): Promise<number> {
-    return await this.client.del(keys);
-  }
-
-  async exists(...keys: string[]): Promise<number> {
-    return await this.client.exists(keys);
-  }
-}
-
-export interface RedisJobOptions {
-  ttr?: number;
-  delay?: number;
-  priority?: number;
-}
-
-export interface RedisJobRequest<TPayload> extends RedisJobOptions {
-  payload: TPayload;
-}
-
-export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, RedisJobRequest<any>> {
+export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap> {
   private messagesKey: string;
   private waitingKey: string;
   private delayedKey: string;
   private reservedKey: string;
   private attemptsKey: string;
   private idKey: string;
-  private redis: RedisOperations;
+  private redis: RedisClient;
 
   constructor(
     redisClient: any, // Accept any Redis client
@@ -133,8 +59,7 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     this.attemptsKey = `${prefix}:${this.queueName}:attempts`;
     this.idKey = `${prefix}:${this.queueName}:id`;
     
-    // Adapt the Redis client to our internal interface
-    this.redis = new RedisAdapter(redisClient);
+    this.redis = redisClient;
   }
 
   protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
@@ -144,15 +69,22 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     
     // Store message in Yii2 format: "ttr;jsonPayload"
     const message = `${ttr};${payload}`;
-    await this.redis.hset(this.messagesKey, id, message);
+    await this.redis.hSet(this.messagesKey, id, message);
     
     if (meta.delaySeconds && meta.delaySeconds > 0) {
       // Add to delayed set with execution time as score
       const executeAt = now + meta.delaySeconds;
-      await this.redis.zadd(this.delayedKey, executeAt, id);
+      await this.redis.zAdd(this.delayedKey, { score: executeAt, value: id });
     } else {
-      // Add to waiting list (FIFO queue)
-      await this.redis.rpush(this.waitingKey, id);
+      // Add to waiting queue with priority support
+      // Use sorted set for priority, with higher priority = higher score
+      // For same priority, use job ID for FIFO (lower ID = added earlier = higher priority within same priority)
+      // Score = priority * 1000000000 + (1000000000 - jobId) for FIFO within same priority
+      const priority = meta.priority || 0;
+      const jobIdNum = parseInt(id);
+      const timePart = 1000000000 - jobIdNum; // Invert job ID for FIFO within same priority
+      const score = priority * 1000000000 + timePart;
+      await this.redis.zAdd(this.waitingKey, { score, value: id });
     }
     
     return id;
@@ -167,25 +99,37 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     // Recover timed-out reserved jobs
     await this.moveExpiredJobs(now);
     
-    // Get a job from waiting queue (blocking if timeout > 0)
-    let result: [string, string] | null = null;
+    // Get highest priority job from waiting queue (sorted set)
+    // Since Redis doesn't have blocking operations for sorted sets, we'll poll
+    let id: string | null = null;
     
     if (timeout > 0) {
-      result = await this.redis.brpop(timeout, this.waitingKey);
+      // For blocking behavior, we need to implement polling since Redis doesn't have bzpop
+      const endTime = Date.now() + timeout * 1000;
+      while (Date.now() < endTime && !id) {
+        const jobs = await this.redis.zRangeByScore(this.waitingKey, '-inf', '+inf', { REV: true, LIMIT: { offset: 0, count: 1 } });
+        if (jobs[0]) {
+          id = jobs[0];
+          await this.redis.zRem(this.waitingKey, [id]);
+          break;
+        }
+        // Small sleep to avoid busy waiting
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
     } else {
-      // Non-blocking: use rpop
-      const id = await this.redis.rpop(this.waitingKey);
-      if (id) {
-        result = [this.waitingKey, id];
+      // Non-blocking: get highest priority job using ZRANGE with REV (highest score first)
+      const jobs = await this.redis.zRange(this.waitingKey, 0, 0, { REV: true });
+      if (jobs[0]) {
+        id = jobs[0];
+        await this.redis.zRem(this.waitingKey, [id]);
       }
     }
     
-    if (!result) {
+    if (!id) {
       return null;
     }
     
-    const id = result[1];
-    const message = await this.redis.hget(this.messagesKey, id);
+    const message = await this.redis.hGet(this.messagesKey, id);
     
     if (!message) {
       return null;
@@ -202,10 +146,10 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     
     // Reserve the job
     const expireAt = now + ttr;
-    await this.redis.zadd(this.reservedKey, expireAt, id);
+    await this.redis.zAdd(this.reservedKey, { score: expireAt, value: id });
     
     // Increment attempt counter
-    await this.redis.hincrby(this.attemptsKey, id, 1);
+    await this.redis.hIncrBy(this.attemptsKey, id, 1);
     
     // Extract job name from payload
     const jobData = JSON.parse(payloadStr);
@@ -223,68 +167,82 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
 
   protected async completeJob(message: QueueMessage): Promise<void> {
     // Remove from reserved queue
-    await this.redis.zrem(this.reservedKey, message.id);
+    await this.redis.zRem(this.reservedKey, [message.id]);
     
     // Remove job data
-    await this.redis.hdel(this.messagesKey, message.id);
-    await this.redis.hdel(this.attemptsKey, message.id);
+    await this.redis.hDel(this.messagesKey, [message.id]);
+    await this.redis.hDel(this.attemptsKey, [message.id]);
   }
 
   protected async failJob(message: QueueMessage, error: unknown): Promise<void> {
     // Remove from reserved queue
-    await this.redis.zrem(this.reservedKey, message.id);
+    await this.redis.zRem(this.reservedKey, [message.id]);
     
     // Remove job data (Redis doesn't track failed job history by default)
-    await this.redis.hdel(this.messagesKey, message.id);
-    await this.redis.hdel(this.attemptsKey, message.id);
+    await this.redis.hDel(this.messagesKey, [message.id]);
+    await this.redis.hDel(this.attemptsKey, [message.id]);
   }
 
   async status(id: string): Promise<JobStatus> {
     // Check if job data exists
-    const exists = await this.redis.hget(this.messagesKey, id);
+    const exists = await this.redis.hGet(this.messagesKey, id);
     if (!exists) {
       return 'done';
     }
 
     // Check delayed queue
-    const delayedScore = await this.redis.zscore(this.delayedKey, id);
+    const delayedScore = await this.redis.zScore(this.delayedKey, id);
     if (delayedScore !== null) {
       return 'delayed';
     }
 
     // Check reserved queue  
-    const reservedScore = await this.redis.zscore(this.reservedKey, id);
+    const reservedScore = await this.redis.zScore(this.reservedKey, id);
     if (reservedScore !== null) {
       return 'reserved';
     }
 
-    // Must be waiting (we don't track waiting in sorted set, but if it exists and not delayed/reserved, it's waiting)
-    return 'waiting';
+    // Check waiting queue (sorted set)
+    const waitingScore = await this.redis.zScore(this.waitingKey, id);
+    if (waitingScore !== null) {
+      return 'waiting';
+    }
+
+    // If job exists but not in any queue, it must be done
+    return 'done';
   }
 
   private async moveDelayedJobs(now: number): Promise<void> {
     // Get jobs ready to execute (score <= now)
-    const readyJobs = await this.redis.zrevrangebyscore(this.delayedKey, now, '-inf');
+    const readyJobs = await this.redis.zRangeByScore(this.delayedKey, '-inf', now, { REV: true });
     
     for (const id of readyJobs) {
       // Remove from delayed
-      await this.redis.zrem(this.delayedKey, id);
+      await this.redis.zRem(this.delayedKey, [id]);
       
-      // Add to waiting
-      await this.redis.rpush(this.waitingKey, id);
+      // Add to waiting queue with default priority (0)
+      // Use job ID for FIFO within same priority
+      const jobIdNum = parseInt(id);
+      const timePart = 1000000000 - jobIdNum;
+      const score = 0 * 1000000000 + timePart; // Priority 0 by default
+      await this.redis.zAdd(this.waitingKey, { score, value: id });
     }
   }
 
   private async moveExpiredJobs(now: number): Promise<void> {
     // Get expired reserved jobs (score <= now)
-    const expiredJobs = await this.redis.zrevrangebyscore(this.reservedKey, now, '-inf');
+    const expiredJobs = await this.redis.zRangeByScore(this.reservedKey, '-inf', now, { REV: true });
     
     for (const id of expiredJobs) {
       // Remove from reserved
-      await this.redis.zrem(this.reservedKey, id);
+      await this.redis.zRem(this.reservedKey, [id]);
       
-      // Add back to waiting for retry
-      await this.redis.rpush(this.waitingKey, id);
+      // Add back to waiting for retry with default priority (0)
+      // Use job ID for FIFO within same priority
+      const jobIdNum = parseInt(id);
+      const timePart = 1000000000 - jobIdNum;
+      const score = 0 * 1000000000 + timePart; // Priority 0 by default
+      await this.redis.zAdd(this.waitingKey, { score, value: id });
     }
   }
 
@@ -292,14 +250,15 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
    * Get the number of jobs in the waiting queue
    */
   async getWaitingCount(): Promise<number> {
-    return await this.redis.llen(this.waitingKey);
+    const waiting = await this.redis.zRange(this.waitingKey, 0, -1);
+    return waiting.length;
   }
 
   /**
    * Get the number of jobs in the delayed queue
    */
   async getDelayedCount(): Promise<number> {
-    const delayed = await this.redis.zrevrangebyscore(this.delayedKey, '+inf', '-inf');
+    const delayed = await this.redis.zRange(this.delayedKey, 0, -1);
     return delayed.length;
   }
 
@@ -307,7 +266,7 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
    * Get the number of jobs in the reserved queue
    */
   async getReservedCount(): Promise<number> {
-    const reserved = await this.redis.zrevrangebyscore(this.reservedKey, '+inf', '-inf');
+    const reserved = await this.redis.zRange(this.reservedKey, 0, -1);
     return reserved.length;
   }
 
@@ -315,12 +274,12 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
    * Clear all jobs from this queue
    */
   async clear(): Promise<void> {
-    await this.redis.del(
+    await this.redis.del([
       this.messagesKey,
       this.waitingKey, 
       this.delayedKey,
       this.reservedKey,
       this.attemptsKey
-    );
+    ]);
   }
 }
