@@ -1,12 +1,10 @@
-# adapter-queue Design Documentation
-
-This document provides a comprehensive overview of the adapter-queue system architecture and job processing flow.
+# Design Documentation
 
 ## System Overview
 
 The adapter-queue system is built around an abstract `Queue` class that provides a unified interface for job processing across different storage backends. The system follows an event-driven architecture with a plugin system for extensibility.
 
-**Key Design Principle**: The queue itself handles all job processing through its `run()` method. There is no separate worker process - each queue instance can process its own jobs by calling `queue.run()`.
+**Key Design Principle**: The queue itself handles all job processing through its `run()` method in process. Each queue instance can process its own jobs by calling `queue.run()`.
 
 ## Core Components
 
@@ -23,7 +21,7 @@ sequenceDiagram
     participant Client
     participant Queue
     participant Plugin as Plugin System
-    participant Driver as Storage Driver
+    participant Driver as Queue Backend
     participant Handler as Job Handler
     participant Events as Event System
 
@@ -68,9 +66,8 @@ sequenceDiagram
 
         Note over Queue,Driver: Job Reservation
         Queue->>Driver: reserve(timeout)
-        Driver->>Driver: Get next available job
+        Driver->>Driver: Reserve next job if available
         alt Job available
-            Driver->>Driver: Mark as reserved, set TTR
             Driver-->>Queue: Return QueueMessage
         else No job available
             Driver-->>Queue: Return null
@@ -90,7 +87,7 @@ sequenceDiagram
         Queue->>Queue: handleMessage(message)
         
         Note over Queue,Handler: Message Handling
-        Queue->>Queue: Parse JSON payload
+        Queue->>Queue: Parse payload (JSON)
         Queue->>Events: emit('beforeExec', event)
         Queue->>Queue: Find handler for job type
         Queue->>Queue: Create JobContext
@@ -176,11 +173,7 @@ classDiagram
     
     class DbQueue {
         -db: DatabaseAdapter
-        +pushMessage(payload, meta)
-        +reserve(timeout)
-        +completeJob(message)
-        +failJob(message, error)
-        +status(id)
+        +get adapter()
     }
     
     class MongooseQueue {
@@ -189,44 +182,83 @@ classDiagram
     
     class MongooseDatabaseAdapter {
         -model: Model~IQueueJob~
-        +insertJob(payload, meta)
-        +reserveJob(timeout)
-        +completeJob(id)
-        +releaseJob(id)
-        +failJob(id, error)
-        +getJobStatus(id)
     }
     
-    class SQLiteQueue {
-        +sqliteAdapter: SQLiteDatabaseAdapter
+    
+    class FileQueue {
+        -path: string
     }
     
-    class RedisQueue {
-        -redis: RedisAdapter
-        +pushMessage(payload, meta)
-        +reserve(timeout)
-        +completeJob(message)
-        +failJob(message, error)
-        +status(id)
+    class InMemoryQueue {
+        -jobs: InMemoryJobRecord[]
     }
     
-    class SqsQueue {
-        -sqs: SQSClient
-        +pushMessage(payload, meta)
-        +reserve(timeout)
-        +completeJob(message)
-        +failJob(message, error)
-        +status(id)
-    }
-    
+    %% Inheritance relationships
     Queue <|-- DbQueue
-    Queue <|-- RedisQueue
-    Queue <|-- SqsQueue
+    Queue <|-- FileQueue
+    Queue <|-- InMemoryQueue
     DbQueue <|-- MongooseQueue
-    DbQueue <|-- SQLiteQueue
+    
+    %% Interface implementations
     DatabaseAdapter <|.. MongooseDatabaseAdapter
+    
+    %% Composition relationships
+    DbQueue o-- DatabaseAdapter
     MongooseQueue *-- MongooseDatabaseAdapter
+    
+    note for Queue "Abstract methods marked with *\nmust be implemented by subclasses"
+    note for DatabaseAdapter "Interface methods must be\nimplemented by adapter classes"
 ```
+
+## Driver Architecture Patterns
+
+Ways to implement the queue interface.
+
+### Pattern 1: Database Queue (DbQueue + DatabaseAdapter)
+
+This pattern tries to make implementing a queue backed by a database as simple as possible. Sine it only requires to implement the `DatabaseAdapter` interface, and that's in term of simple CRUD operations.
+
+It' usually makes sense for general purpose databases, like PostgreSQL, MySQL, etc.
+
+Used by: **Mongoose** and **SQLite**
+
+```
+Queue (abstract)
+  ↓ extends
+DbQueue (concrete - implements Queue's abstract methods)
+  ↓ extends
+MongooseQueue/SQLiteQueue (convenience wrapper)
+  ↓ uses
+MongooseDatabaseAdapter/SQLiteDatabaseAdapter (implements DatabaseAdapter)
+```
+
+### Pattern 2: Direct Implementation
+
+For drivers that want to implement the queue interface directly, it's also simple, but more flexible than the database adapter pattern.
+
+It usually makes sense if the driver has unique characteristics that are not easily abstracted away, like Redis pub/sub, SQS messaging, etc.
+
+Used by: **Redis**, **SQS**, **File**, and **InMemory**
+
+```
+Queue (abstract)
+  ↓ extends
+RedisQueue/SqsQueue/FileQueue/InMemoryQueue (directly implements abstract methods)
+```
+### When to Use Each Pattern
+
+**Use Database Abstraction Pattern** when:
+
+- The storage backend is a general-purpose database
+- You want to support multiple database drivers with similar functionality
+- You need complex query capabilities and transactions
+
+**Use Direct Implementation Pattern** when:
+
+- The storage backend has unique characteristics (Redis pub/sub, SQS messaging, file system)
+- You want maximum performance and minimal abstraction
+- The backend has specific features you want to leverage
+
 
 ## Event System
 
@@ -253,26 +285,133 @@ type QueueEvent =
 
 ## Plugin System
 
-Plugins provide extensibility points throughout the job processing lifecycle:
+Plugins provide powerful extensibility points throughout the job processing lifecycle. They can control queue behavior, implement monitoring, handle resource management, and much more.
+
+### Plugin Capabilities
+
+```mermaid
+flowchart TD
+    A[Queue starts] --> B[Plugin.init]
+    B --> C[Queue begins polling loop]
+    C --> D[Plugin.beforePoll]
+    D --> E{beforePoll result}
+    E -->|continue| F[Reserve job from backend]
+    E -->|stop| G[Stop queue processing]
+    F --> H{Job available?}
+    H -->|No| I[Sleep/timeout]
+    I --> D
+    H -->|Yes| J[Plugin.beforeJob]
+    J --> K[Execute job handler]
+    K --> L[Plugin.afterJob]
+    L --> M{Queue will continue?}
+    M -->|Yes| D
+    M -->|No| N[Plugin cleanup]
+    G --> N
+    N --> O[Queue stops]
+
+    style E fill:#e1f5fe
+    style G fill:#ffebee
+    style N fill:#f3e5f5
+```
 
 ### Plugin Interface
 
 ```typescript
 interface QueuePlugin {
   init?(context: PluginContext): Promise<(() => Promise<void>) | void>;
-  beforePoll?(): Promise<'continue' | 'stop'>;
-  beforeJob?(message: QueueMessage): Promise<void>;
-  afterJob?(message: QueueMessage, error?: unknown): Promise<void>;
+  beforePoll?(): Promise<'continue' | 'stop'>;          // Can stop queue
+  beforeJob?(message: QueueMessage): Promise<void>;      // Pre-process jobs
+  afterJob?(message: QueueMessage, error?: unknown): Promise<void>; // Post-process
 }
 ```
 
-### Plugin Lifecycle
+### Example: Logging Plugin
 
-1. **Initialization**: `init()` called when queue starts
-2. **Before Poll**: `beforePoll()` called before each job reservation attempt
-3. **Before Job**: `beforeJob()` called before job handler execution
-4. **After Job**: `afterJob()` called after job completion (success or failure)
-5. **Disposal**: Cleanup function returned from `init()` called on shutdown
+A comprehensive logging plugin that demonstrates all plugin lifecycle hooks:
+
+```typescript
+const loggingPlugin = (logger = console): QueuePlugin => {
+  const startTimes = new Map<string, number>();
+  
+  return {
+    // Initialize plugin when queue starts
+    async init({ queue }) {
+      logger.info(`🚀 Queue "${queue.name}" started with logging plugin`);
+      
+      // Return cleanup function
+      return async () => {
+        logger.info(`🛑 Queue "${queue.name}" stopped`);
+      };
+    },
+
+    // Called before each polling attempt
+    async beforePoll(): Promise<'continue' | 'stop'> {
+      logger.debug('🔍 Polling for new jobs...');
+      
+      // Example: Stop queue during maintenance hours
+      const hour = new Date().getHours();
+      if (hour >= 2 && hour <= 4) {
+        logger.warn('⏰ Maintenance window - stopping queue');
+        return 'stop';
+      }
+      
+      return 'continue';
+    },
+
+    // Called before each job execution
+    async beforeJob(job: QueueMessage): Promise<void> {
+      startTimes.set(job.id, Date.now());
+      logger.info(`▶️  Starting job ${job.name} (${job.id})`);
+    },
+
+    // Called after each job completion
+    async afterJob(job: QueueMessage, error?: unknown): Promise<void> {
+      const startTime = startTimes.get(job.id);
+      const duration = startTime ? Date.now() - startTime : 0;
+      startTimes.delete(job.id);
+      
+      if (error) {
+        logger.error(`❌ Job ${job.name} (${job.id}) failed after ${duration}ms:`, error);
+      } else {
+        logger.info(`✅ Job ${job.name} (${job.id}) completed in ${duration}ms`);
+      }
+    }
+  };
+};
+
+// Usage
+const queue = new FileQueue({
+  name: 'my-queue',
+  path: './queue-data',
+  plugins: [loggingPlugin()]
+});
+```
+
+
+### Advanced Plugin Patterns
+
+#### Rate Limiting Pattern
+```typescript
+const rateLimitPlugin = (maxJobsPerSecond: number): QueuePlugin => {
+  let lastJobTime = 0;
+  const minInterval = 1000 / maxJobsPerSecond;
+  
+  return {
+    async beforeJob(job: QueueMessage): Promise<void> {
+      const now = Date.now();
+      const elapsed = now - lastJobTime;
+      
+      if (elapsed < minInterval) {
+        await new Promise(resolve => 
+          setTimeout(resolve, minInterval - elapsed)
+        );
+      }
+      
+      lastJobTime = Date.now();
+    }
+  };
+};
+```
 
 ## Error Handling and Retry Logic
 
@@ -316,133 +455,3 @@ queue.setHandlers({
   }
 });
 ```
-
-## Performance Considerations
-
-### Polling Strategy
-
-- **Long Polling**: Supported by drivers like SQS for efficient waiting
-- **Short Polling**: Used by database drivers with configurable sleep intervals
-- **Batch Processing**: Single `run()` call processes all available jobs
-
-### Storage Optimization
-
-- **Indexes**: Database drivers create appropriate indexes for job queries
-- **Atomic Operations**: Job reservation uses atomic operations to prevent race conditions
-- **Connection Pooling**: Managed by underlying storage drivers
-
-### Memory Management
-
-- **Event Listeners**: Properly cleaned up after job processing
-- **Plugin Disposal**: All plugins disposed in reverse order on shutdown
-- **Buffer Management**: Job payloads handled as Buffers for efficiency
-
-## Configuration Options
-
-### Queue Options
-
-```typescript
-interface QueueOptions {
-  name: string;                    // Required queue name
-  ttrDefault?: number;             // Default TTR in seconds (300)
-  plugins?: QueuePlugin[];         // Optional plugins
-}
-```
-
-### Job Options
-
-```typescript
-interface JobOptions {
-  ttr?: number;                    // Time to run override
-  delaySeconds?: number;           // Delay before job becomes available
-  priority?: number;               // Job priority (higher = first)
-}
-```
-
-## Usage Patterns
-
-### Single-Process Job Processing
-
-The simplest usage pattern - process all available jobs once:
-
-```typescript
-const queue = new MongooseQueue<MyJobs>({ name: 'my-queue' });
-
-queue.setHandlers({
-  'send-email': async (job) => {
-    await emailService.send(job.payload);
-  }
-});
-
-// Process all available jobs once and exit
-await queue.run();
-```
-
-### Continuous Job Processing
-
-For long-running processes that continuously poll for new jobs:
-
-```typescript
-// Run continuously, polling every 5 seconds when queue is empty
-await queue.run(true, 5);
-```
-
-### Multiple Queue Instances
-
-You can run multiple queue instances for different job types or scaling:
-
-```typescript
-// Email queue
-const emailQueue = new MongooseQueue<EmailJobs>({ name: 'emails' });
-emailQueue.setHandlers({ 'send-email': emailHandler });
-
-// Image processing queue  
-const imageQueue = new MongooseQueue<ImageJobs>({ name: 'images' });
-imageQueue.setHandlers({ 'process-image': imageHandler });
-
-// Run both queues concurrently
-await Promise.all([
-  emailQueue.run(true, 3),
-  imageQueue.run(true, 3)
-]);
-```
-
-### Microservice Pattern
-
-Each microservice can have its own queue processing:
-
-```typescript
-// In your Express/Fastify app
-const queue = new MongooseQueue<AppJobs>({ name: 'app-jobs' });
-queue.setHandlers(jobHandlers);
-
-// Process jobs in background
-queue.run(true, 5).catch(console.error);
-
-// Add jobs from HTTP endpoints
-app.post('/api/send-email', async (req, res) => {
-  const jobId = await queue.addJob('send-email', { 
-    payload: req.body 
-  });
-  res.json({ jobId });
-});
-```
-
-## Architecture Benefits
-
-### Simplicity
-- **No Worker Complexity**: No separate worker processes to manage
-- **Direct Integration**: Queue processing is part of your application
-- **Easy Testing**: Simple to test job processing in unit tests
-
-### Flexibility
-- **Multiple Patterns**: Support both one-time and continuous processing
-- **Scaling Options**: Run multiple instances, multiple queues, or both
-- **Plugin System**: Extend functionality without modifying core code
-
-### Type Safety
-- **Compile-time Validation**: Job payloads are type-checked
-- **Handler Safety**: Handlers receive correctly typed job data
-- **IDE Support**: Full autocomplete and error checking
-
-This design provides a robust, type-safe, and extensible job queue system suitable for production use across different storage backends and deployment scenarios.
