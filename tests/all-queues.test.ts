@@ -173,30 +173,25 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
       name: "SqsQueue",
       features: {
         supportsPriority: false, // SQS doesn't support priority ordering
-        supportsDelayedJobs: false, // LocalStack doesn't properly support DelaySeconds
+        supportsDelayedJobs: true, // ElasticMQ supports DelaySeconds
         supportsStatus: false, // SQS doesn't support status queries
       },
       beforeAll: async () => {
-        sqsContainer = await new GenericContainer("localstack/localstack:3.0")
-          .withEnvironment({
-            SERVICES: "sqs",
-            DEBUG: "1",
-            PERSISTENCE: "0",
-          })
-          .withExposedPorts(4566)
-          .withStartupTimeout(90000)
+        sqsContainer = await new GenericContainer("softwaremill/elasticmq-native:1.5.7")
+          .withExposedPorts(9324)
+          .withStartupTimeout(30000)
           .start();
 
         const endpoint = `http://${sqsContainer.getHost()}:${sqsContainer.getMappedPort(
-          4566
+          9324
         )}`;
 
         sqsClient = new SQSClient({
-          region: "us-east-1",
+          region: "elasticmq",
           endpoint,
           credentials: {
-            accessKeyId: "test",
-            secretAccessKey: "test",
+            accessKeyId: "x",
+            secretAccessKey: "x",
           },
         });
 
