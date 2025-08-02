@@ -51,6 +51,7 @@
     "@types/node": "^20.0.0",
     "better-sqlite3": "^12.0.0",
     "mongodb": "^6.17.0",
+    "mongoose": "^8.0.0",
     "redis": "^5.5.6",
     "testcontainers": "^11.0.3",
     "typescript": "^5.0.0",
@@ -84,12 +85,17 @@
     "./memory": {
       "import": "./dist/src/adapters/memory.js",
       "types": "./dist/src/adapters/memory.d.ts"
+    },
+    "./mongoose": {
+      "import": "./dist/src/adapters/mongoose.js",
+      "types": "./dist/src/adapters/mongoose.d.ts"
     }
   },
   "peerDependencies": {
     "@aws-sdk/client-sqs": "^3.0.0",
     "better-sqlite3": "^9.0.0",
     "mongodb": "^6.0.0",
+    "mongoose": "^7.0.0 || ^8.0.0",
     "redis": "^4.0.0"
   },
   "peerDependenciesMeta": {
@@ -100,6 +106,9 @@
       "optional": true
     },
     "mongodb": {
+      "optional": true
+    },
+    "mongoose": {
       "optional": true
     },
     "redis": {
