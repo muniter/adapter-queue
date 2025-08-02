@@ -24,6 +24,8 @@ import { FileQueue } from "../src/drivers/file.js";
 import { createSQLiteQueue } from "../src/adapters/sqlite.js";
 import { RedisQueue } from "../src/drivers/redis.js";
 import { SqsQueue } from "../src/drivers/sqs.js";
+import { createMongooseQueue } from "../src/adapters/mongoose.js";
+import mongoose from "mongoose";
 import type { Queue } from "../src/core/queue.js";
 import type { JobRequestFull } from "../src/interfaces/job.ts";
 
@@ -252,20 +254,49 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
       },
     };
   },
-  // TODO: Add other drivers here later
-  // {
-  //   name: 'MongooseQueue',
-  //   beforeAll: async () => {
-  //     // Start MongoDB container
-  //     await startMongoContainer();
-  //   },
-  //   afterAll: async () => {
-  //     // Stop MongoDB container
-  //     await stopMongoContainer();
-  //   },
-  //   createQueue: async () => { ... },
-  //   cleanup: async (queue) => { ... }
-  // }
+  async () => {
+    let mongoContainer: StartedTestContainer;
+    let mongoUri: string;
+    
+    return {
+      name: "MongooseQueue",
+      features: {
+        supportsPriority: true,     // MongoDB supports priority ordering
+        supportsDelayedJobs: true,  // MongoDB supports delayed jobs
+        supportsStatus: true,       // MongoDB supports status queries
+      },
+      beforeAll: async () => {
+        mongoContainer = await new GenericContainer("mongo:7")
+          .withExposedPorts(27017)
+          .withStartupTimeout(60000)
+          .start();
+          
+        const mongoPort = mongoContainer.getMappedPort(27017);
+        const mongoHost = mongoContainer.getHost();
+        mongoUri = `mongodb://${mongoHost}:${mongoPort}/test-queue-db`;
+        
+        // Connect mongoose
+        await mongoose.connect(mongoUri);
+      },
+      afterAll: async () => {
+        if (mongoose.connection.readyState === 1) {
+          await mongoose.disconnect();
+        }
+        if (mongoContainer) {
+          await mongoContainer.stop();
+        }
+      },
+      createQueue: async () => {
+        return createMongooseQueue<TestJobs>("test-queue");
+      },
+      cleanup: async () => {
+        // Clean up MongoDB collections between tests
+        if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+          await mongoose.connection.db.dropDatabase();
+        }
+      },
+    };
+  },
 ];
 
 async function resolveAllConfigs(): Promise<Array<QueueDriverConfig>> {
