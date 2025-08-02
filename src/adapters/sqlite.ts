@@ -95,8 +95,8 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     `);
     recoverStmt.run(now);
     
-    // Atomically reserve a job using UPDATE with RETURNING (if supported) or UPDATE + SELECT
-    // For SQLite, we'll use a subquery to atomically reserve the next available job
+    // Atomically reserve a job using UPDATE with RETURNING 
+    // SQLite 3.35+ supports RETURNING clause
     const reserveStmt = this.db.prepare(`
       UPDATE jobs SET 
         status = 'reserved',
@@ -109,27 +109,15 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
          ORDER BY priority DESC, push_time ASC 
          LIMIT 1
        )
+       RETURNING *
     `);
 
-    const result = reserveStmt.run(now, now + 300 * 1000, now); // Default 5 minute TTR for now
+    const job = reserveStmt.get(now, now + 300 * 1000, now) as any;
 
-    // Check if we actually updated a row
-    if (result.changes === 0) {
+    // Check if we actually got a job
+    if (!job) {
       return null;
     }
-
-    // Now get the job we just reserved
-    const getJobStmt = this.db.prepare(`
-      SELECT * FROM jobs 
-       WHERE status = 'reserved' 
-       AND reserve_time = ?
-       ORDER BY reserve_time DESC
-       LIMIT 1
-    `);
-
-    const job = getJobStmt.get(now) as any;
-
-    if (!job) return null;
 
     // Update with the correct TTR from the job
     const jobTtr = job.ttr || 300;
@@ -220,6 +208,16 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
       UPDATE jobs SET status = 'done', done_time = ? WHERE id = ?
     `);
     stmt.run(Date.now(), parseInt(id));
+  }
+
+  async clear(): Promise<void> {
+    // Delete all jobs from the database and reset auto-increment
+    const deleteStmt = this.db.prepare('DELETE FROM jobs');
+    deleteStmt.run();
+    
+    // Reset the auto-increment counter
+    const resetStmt = this.db.prepare('DELETE FROM sqlite_sequence WHERE name = ?');
+    resetStmt.run('jobs');
   }
 
   close(): void {
