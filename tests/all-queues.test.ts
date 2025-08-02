@@ -101,40 +101,25 @@ const drivers: Array<() => Promise<QueueDriverConfig> | QueueDriverConfig> = [
       },
     };
   },
-  () => {
-    let tempDbFile: string;
-
-    return {
-      name: "SQLiteQueue",
-      features: {
-        supportsPriority: true, // SQLite supports priority ordering
-        supportsDelayedJobs: true,
-        supportsStatus: true,
-      },
-      beforeAll: async () => {
-        // Create temporary SQLite database file
-        tempDbFile = path.join(
-          os.tmpdir(),
-          `sqlite-queue-test-${Date.now()}.db`
-        );
-      },
-      afterAll: async () => {
-        // Clean up SQLite database file
-        try {
-          await fs.unlink(tempDbFile).catch(() => {});
-        } catch (error) {
-          console.warn("Failed to clean up SQLite database file:", error);
-        }
-      },
-      createQueue: async () => {
-        // Create new SQLite queue for each test
-        return createSQLiteQueue<TestJobs>("test-queue", tempDbFile);
-      },
-      cleanup: async () => {
-        await fs.unlink(tempDbFile);
-      },
-    };
-  },
+  () => ({
+    name: "SQLiteQueue",
+    features: {
+      supportsPriority: true, // SQLite supports priority ordering
+      supportsDelayedJobs: true,
+      supportsStatus: true,
+    },
+    createQueue: async () => {
+      // Use in-memory SQLite database for tests - much faster and no file cleanup needed
+      return createSQLiteQueue<TestJobs>("test-queue", ":memory:");
+    },
+    cleanup: async (queue) => {
+      // Clear all jobs from the in-memory database
+      const adapter = (queue as any).db;
+      if (adapter && typeof adapter.clear === 'function') {
+        await adapter.clear();
+      }
+    },
+  }),
   async () => {
     let redisContainer: StartedTestContainer;
     let redisClient: RedisClientType;
