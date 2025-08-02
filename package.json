@@ -81,10 +81,6 @@
     "./mongoose": {
       "import": "./dist/src/adapters/mongoose.js",
       "types": "./dist/src/adapters/mongoose.d.ts"
-    },
-    "./worker": {
-      "import": "./dist/src/worker/worker.js",
-      "types": "./dist/src/worker/worker.d.ts"
     }
   },
   "peerDependencies": {

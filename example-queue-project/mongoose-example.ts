@@ -64,9 +64,10 @@ async function main() {
   });
   console.log(`Image job created with ID: ${imageJobId}`);
 
-  // Run the queue worker
-  console.log('\nStarting queue worker...');
+  // Process all jobs once
+  console.log('\nProcessing jobs...');
   await queue.run();
+  console.log('All jobs processed!');
 }
 
 // Alternative: Using a custom model
@@ -95,8 +96,37 @@ async function customModelExample(): Promise<void> {
   });
 }
 
-// Run the example
+// Continuous processing example
+async function continuousProcessingExample(): Promise<void> {
+  await mongoose.connect('mongodb://localhost:27017/queue-example');
+  
+  const queue = createMongooseQueue<MyJobs>('continuous-queue');
+  
+  queue.setHandlers({
+    'send-email': async (job) => {
+      console.log(`[${new Date().toISOString()}] Processing email job: ${job.id}`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`Email sent to ${job.payload.to}`);
+    },
+    'process-image': async (job) => {
+      console.log(`[${new Date().toISOString()}] Processing image job: ${job.id}`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log(`Image processed: ${job.payload.url}`);
+    }
+  });
+
+  console.log('Starting continuous job processing (polling every 3 seconds)...');
+  console.log('Add jobs from another process and watch them get processed!');
+  
+  // This will run forever, polling every 3 seconds
+  await queue.run(true, 3);
+}
+
+// Run the example (uncomment the one you want to test)
 main().catch(console.error);
 
+// For continuous processing, run this instead:
+// continuousProcessingExample().catch(console.error);
+
 // Export for testing
-export { main, customModelExample };
+export { main, customModelExample, continuousProcessingExample };

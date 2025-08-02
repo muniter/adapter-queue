@@ -2,6 +2,8 @@
 
 The Mongoose adapter allows you to use Mongoose models with the adapter-queue system, providing seamless integration with your existing Mongoose-based application. It implements the `DatabaseAdapter` interface directly, offering a native Mongoose experience.
 
+**Key Feature**: No separate worker processes needed - each queue processes its own jobs through the `run()` method.
+
 ## Installation
 
 First, ensure you have both `adapter-queue` and `mongoose` installed:
@@ -32,8 +34,11 @@ queue.setHandlers({
 // Push a job
 await queue.push('send-email', { to: 'user@example.com' });
 
-// Start the worker
+// Process all jobs once
 await queue.run();
+
+// Or run continuously (polling every 5 seconds)
+await queue.run(true, 5);
 ```
 
 ## Using Custom Models
