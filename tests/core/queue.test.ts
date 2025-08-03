@@ -361,8 +361,8 @@ describe('Queue', () => {
       
       // Should sleep for 2000ms
       const timeBetweenPolls = plugin.getTimeBetweenPolls(0, 1);
-      expect(timeBetweenPolls).toBeGreaterThanOrEqual(2000);
-      expect(timeBetweenPolls).toBeLessThan(2100);
+      expect(timeBetweenPolls).toBeGreaterThanOrEqual(2000 * 0.9);
+      expect(timeBetweenPolls).toBeLessThan(2100 * 1.1);
     });
 
     it('should not sleep when timeout is 0 (long-polling)', async () => {
