@@ -14,12 +14,17 @@ import type {
   JobStatus,
   JobMeta,
   QueueMessage,
-  SqsJobRequest,
+  BaseJobOptions,
+  WithDelay,
 } from "../interfaces/job.ts";
 import type { QueueOptions } from "../interfaces/plugin.ts";
 
-// Re-export job interface for this driver
-export type { SqsJobRequest } from "../interfaces/job.ts";
+// Driver-specific job request interface
+export interface SqsJobRequest<TPayload> extends BaseJobOptions, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // SQS supports delays (0-900 seconds max) but not priority ordering
+}
 
 interface SqsClient {
   send: SQSClient["send"];

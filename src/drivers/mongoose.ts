@@ -1,8 +1,15 @@
 import { Schema, model, Model, Document, Types } from 'mongoose';
 import type { UpdateQuery, FilterQuery, QueryOptions } from 'mongoose';
 import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
-import type { JobMeta, JobStatus } from '../interfaces/job.ts';
+import type { JobMeta, JobStatus, BaseJobOptions, WithPriority, WithDelay } from '../interfaces/job.ts';
 import { DbQueue } from '../drivers/db.ts';
+
+// Driver-specific job request interface
+export interface MongooseJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // Mongoose/MongoDB queue supports both priority and delays
+}
 
 // MongoDB document structure for queue jobs
 export interface IQueueJobDocument {
@@ -245,5 +252,3 @@ export const QueueJob = createQueueModel();
 // Re-export for convenience
 export { DbQueue };
 
-// Re-export job interface for Mongoose adapter
-export type { MongooseJobRequest } from '../interfaces/job.ts';

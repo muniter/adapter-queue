@@ -1,9 +1,13 @@
 import { Queue } from '../core/queue.ts';
-import type { JobStatus, JobMeta, QueueMessage, InMemoryJobRequest } from '../interfaces/job.ts';
+import type { JobStatus, JobMeta, QueueMessage, BaseJobOptions, WithPriority, WithDelay } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
-// Re-export job interface for this driver
-export type { InMemoryJobRequest } from '../interfaces/job.ts';
+// Driver-specific job request interface
+export interface InMemoryJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // In-memory queue supports both priority and delays
+}
 
 interface InMemoryJobRecord {
   id: string;

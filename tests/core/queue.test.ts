@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Queue } from '../../src/core/queue.ts';
-import type { JobMeta, QueueMessage, DbJobRequest } from '../../src/interfaces/job.ts';
+import type { JobMeta, QueueMessage, JobRequestFull } from '../../src/interfaces/job.ts';
 
 interface TestJobs {
   'test-job': { data: string };
@@ -9,7 +9,7 @@ interface TestJobs {
   'fail-job': { data: string };
 }
 
-class TestQueue extends Queue<TestJobs, DbJobRequest<any>> {
+class TestQueue extends Queue<TestJobs, JobRequestFull<any>> {
   public messages: Array<{ payload: string; meta: JobMeta; id: string }> = [];
   public completedJobs: Array<{ id: string; message: QueueMessage }> = [];
   public failedJobs: Array<{ id: string; message: QueueMessage; error: unknown }> = [];

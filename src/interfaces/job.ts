@@ -106,40 +106,4 @@ export interface BaseJobRequest<TPayload> extends BaseJobOptions {
   payload: TPayload;
 }
 
-export interface DbJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // DB adapters may or may not support delay/priority - we allow them for flexibility
-  // The specific DatabaseAdapter implementation determines actual support
-}
-
-export interface SqsJobRequest<TPayload> extends BaseJobOptions, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // SQS supports delays (0-900 seconds max) but not priority ordering
-}
-
-export interface FileJobRequest<TPayload> extends BaseJobOptions, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // File queue supports delays but not priority ordering
-}
-
-export interface InMemoryJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // In-memory queue supports both priority and delays
-}
-
-export interface RedisJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // Redis queue supports both priority and delays
-}
-
-export interface MongooseJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
-  /** Job payload */
-  payload: TPayload;
-  // Mongoose/MongoDB queue supports both priority and delays
-}
 

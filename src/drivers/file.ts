@@ -2,11 +2,15 @@ import { promises as fs } from 'fs';
 import { open } from 'fs/promises';
 import path from 'path';
 import { Queue } from '../core/queue.ts';
-import type { QueueMessage, JobMeta, JobStatus, FileJobRequest } from '../interfaces/job.ts';
+import type { QueueMessage, JobMeta, JobStatus, BaseJobOptions, WithDelay } from '../interfaces/job.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
-// Re-export job interface for this driver
-export type { FileJobRequest } from '../interfaces/job.ts';
+// Driver-specific job request interface
+export interface FileJobRequest<TPayload> extends BaseJobOptions, WithDelay {
+  /** Job payload */
+  payload: TPayload;
+  // File queue supports delays but not priority ordering
+}
 
 interface IndexData {
   lastId: number;
