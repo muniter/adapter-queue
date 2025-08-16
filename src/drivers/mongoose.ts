@@ -1,11 +1,23 @@
-import { Schema, model, Model, Document, Types } from 'mongoose';
-import type { UpdateQuery, FilterQuery, QueryOptions } from 'mongoose';
-import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
-import type { JobMeta, JobStatus, BaseJobOptions, WithPriority, WithDelay } from '../interfaces/job.ts';
-import { DbQueue } from '../drivers/db.ts';
+import { Schema, model, Model, Document, Types } from "mongoose";
+import type { UpdateQuery, FilterQuery, QueryOptions } from "mongoose";
+import type {
+  DatabaseAdapter,
+  QueueJobRecord,
+} from "../interfaces/database.ts";
+import type {
+  JobMeta,
+  JobStatus,
+  BaseJobOptions,
+  WithPriority,
+  WithDelay,
+} from "../interfaces/job.ts";
+import { DbQueue } from "../drivers/db.ts";
 
 // Driver-specific job request interface
-export interface MongooseJobRequest<TPayload> extends BaseJobOptions, WithPriority, WithDelay {
+export interface MongooseJobRequest<TPayload>
+  extends BaseJobOptions,
+    WithPriority,
+    WithDelay {
   /** Job payload */
   payload: TPayload;
   // Mongoose/MongoDB queue supports both priority and delays
@@ -13,7 +25,7 @@ export interface MongooseJobRequest<TPayload> extends BaseJobOptions, WithPriori
 
 // MongoDB document structure for queue jobs
 export interface IQueueJobDocument {
-  payload: Buffer;
+  payload: any;
   ttr: number;
   delaySeconds: number;
   priority: number;
@@ -22,7 +34,7 @@ export interface IQueueJobDocument {
   reserveTime: Date | null;
   doneTime: Date | null;
   expireTime: Date | null;
-  status: 'waiting' | 'reserved' | 'done' | 'failed';
+  status: "waiting" | "reserved" | "done" | "failed";
   attempt: number;
   errorMessage?: string;
 }
@@ -33,28 +45,31 @@ export interface IQueueJob extends IQueueJobDocument, Document {
 }
 
 // Queue job schema
-export const QueueJobSchema = new Schema<IQueueJob>({
-  payload: { type: Buffer, required: true },
-  ttr: { type: Number, required: true, default: 300 },
-  delaySeconds: { type: Number, required: true, default: 0 },
-  priority: { type: Number, required: true, default: 0 },
-  pushTime: { type: Date, required: true },
-  delayTime: { type: Date, default: null },
-  reserveTime: { type: Date, default: null },
-  doneTime: { type: Date, default: null },
-  expireTime: { type: Date, default: null },
-  status: { 
-    type: String, 
-    required: true, 
-    enum: ['waiting', 'reserved', 'done', 'failed'],
-    default: 'waiting'
+export const QueueJobSchema = new Schema<IQueueJob>(
+  {
+    payload: { type: Schema.Types.Mixed, required: true },
+    ttr: { type: Number, required: true, default: 300 },
+    delaySeconds: { type: Number, required: true, default: 0 },
+    priority: { type: Number, required: true, default: 0 },
+    pushTime: { type: Date, required: true },
+    delayTime: { type: Date, default: null },
+    reserveTime: { type: Date, default: null },
+    doneTime: { type: Date, default: null },
+    expireTime: { type: Date, default: null },
+    status: {
+      type: String,
+      required: true,
+      enum: ["waiting", "reserved", "done", "failed"],
+      default: "waiting",
+    },
+    attempt: { type: Number, required: true, default: 0 },
+    errorMessage: { type: String },
   },
-  attempt: { type: Number, required: true, default: 0 },
-  errorMessage: { type: String }
-}, {
-  collection: 'queue_jobs',
-  timestamps: false
-});
+  {
+    collection: "queue_jobs",
+    timestamps: false,
+  }
+);
 
 // Add indexes
 QueueJobSchema.index({ status: 1, delayTime: 1, priority: -1, pushTime: 1 });
@@ -69,18 +84,20 @@ type MongoUpdate = UpdateQuery<IQueueJobDocument>;
 export class MongooseDatabaseAdapter implements DatabaseAdapter {
   constructor(private model: Model<IQueueJob>) {}
 
-  async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
+  async insertJob(payload: any, meta: JobMeta): Promise<string> {
     const now = new Date();
-    
+
     const doc = await this.model.create({
       payload,
       ttr: meta.ttr ?? 300,
       delaySeconds: meta.delaySeconds ?? 0,
       priority: meta.priority ?? 0,
       pushTime: now,
-      delayTime: meta.delaySeconds ? new Date(now.getTime() + meta.delaySeconds * 1000) : null,
-      status: 'waiting',
-      attempt: 0
+      delayTime: meta.delaySeconds
+        ? new Date(now.getTime() + meta.delaySeconds * 1000)
+        : null,
+      status: "waiting",
+      attempt: 0,
     });
 
     return doc._id.toHexString();
@@ -91,43 +108,42 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
     // First, recover timed-out jobs
     await this.model.updateMany(
-      { 
-        status: 'reserved', 
-        expireTime: { $lt: now } 
+      {
+        status: "reserved",
+        expireTime: { $lt: now },
       },
-      { 
-        $set: { 
-          status: 'waiting', 
-          reserveTime: null, 
-          expireTime: null 
-        }, 
-        $inc: { attempt: 1 } 
+      {
+        $set: {
+          status: "waiting",
+          reserveTime: null,
+          expireTime: null,
+        },
+        $inc: { attempt: 1 },
+      },
+      {
+        session: undefined,
       }
     );
 
-    // Atomically claim the next available job
-    const filter: MongoFilter = {
-      status: 'waiting',
-      $or: [
-        { delayTime: null }, 
-        { delayTime: { $lte: now } }
-      ]
-    };
-
-    const update: MongoUpdate = {
-      $set: {
-        status: 'reserved',
-        reserveTime: now
+    const doc = await this.model.findOneAndUpdate(
+      // Atomically claim the next available job
+      {
+        status: "waiting",
+        $or: [{ delayTime: null }, { delayTime: { $lte: now } }],
+      },
+      {
+        $set: {
+          status: "reserved",
+          reserveTime: now,
+        },
+      },
+      {
+        sort: { priority: -1, pushTime: 1 },
+        new: true,
+        session: undefined,
       }
-    };
+    );
 
-    const options: QueryOptions = {
-      sort: { priority: -1, pushTime: 1 },
-      new: true
-    };
-
-    const doc = await this.model.findOneAndUpdate(filter, update, options);
-    
     if (!doc) {
       return null;
     }
@@ -136,7 +152,8 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
     const ttr = doc.ttr || 300;
     await this.model.updateOne(
       { _id: doc._id },
-      { $set: { expireTime: new Date(now.getTime() + ttr * 1000) } }
+      { $set: { expireTime: new Date(now.getTime() + ttr * 1000) } },
+      { session: undefined }
     );
 
     return {
@@ -147,69 +164,79 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
         delaySeconds: doc.delaySeconds,
         priority: doc.priority,
         pushedAt: doc.pushTime,
-        reservedAt: now
+        reservedAt: now,
       },
       pushedAt: doc.pushTime,
-      reservedAt: now
+      reservedAt: now,
     };
   }
 
   async completeJob(id: string): Promise<void> {
     await this.model.updateOne(
       { _id: new Types.ObjectId(id) },
-      { $set: { status: 'done', doneTime: new Date() } }
+      { $set: { status: "done", doneTime: new Date() } },
+      { session: undefined }
     );
   }
 
   async releaseJob(id: string): Promise<void> {
     await this.model.updateOne(
       { _id: new Types.ObjectId(id) },
-      { 
-        $set: { 
-          status: 'waiting', 
-          reserveTime: null, 
-          expireTime: null 
-        } 
-      }
+      {
+        $set: {
+          status: "waiting",
+          reserveTime: null,
+          expireTime: null,
+        },
+      },
+      { session: undefined }
     );
   }
 
   async failJob(id: string, error: string): Promise<void> {
     await this.model.updateOne(
       { _id: new Types.ObjectId(id) },
-      { 
-        $set: { 
-          status: 'failed', 
-          errorMessage: error, 
-          doneTime: new Date() 
-        } 
-      }
+      {
+        $set: {
+          status: "failed",
+          errorMessage: error,
+          doneTime: new Date(),
+        },
+      },
+      { session: undefined }
     );
   }
 
   async getJobStatus(id: string): Promise<JobStatus | null> {
-    const doc = await this.model.findOne(
-      { _id: new Types.ObjectId(id) }, 
-      { status: 1, delayTime: 1 }
-    ).exec();
-    
+    const doc = await this.model
+      .findOne(
+        { _id: new Types.ObjectId(id) },
+        { status: 1, delayTime: 1 },
+        { session: undefined }
+      )
+      .exec();
+
     if (!doc) {
       return null;
     }
-    
+
     // Check if job is delayed
-    if (doc.status === 'waiting' && doc.delayTime && doc.delayTime > new Date()) {
-      return 'delayed';
+    if (
+      doc.status === "waiting" &&
+      doc.delayTime &&
+      doc.delayTime > new Date()
+    ) {
+      return "delayed";
     }
-    
+
     switch (doc.status) {
-      case 'waiting':
-        return 'waiting';
-      case 'reserved':
-        return 'reserved';
-      case 'done':
-      case 'failed':
-        return 'done';
+      case "waiting":
+        return "waiting";
+      case "reserved":
+        return "reserved";
+      case "done":
+      case "failed":
+        return "done";
       default:
         return null;
     }
@@ -217,9 +244,11 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 }
 
 // Mongoose-specific queue class
-export class MongooseQueue<TJobMap = Record<string, unknown>> extends DbQueue<TJobMap> {
+export class MongooseQueue<
+  TJobMap = Record<string, unknown>
+> extends DbQueue<TJobMap> {
   mongooseAdapter: MongooseDatabaseAdapter;
-  
+
   constructor(config: { model: Model<IQueueJob>; name: string }) {
     const adapter = new MongooseDatabaseAdapter(config.model);
     super(adapter, { name: config.name });
@@ -227,10 +256,9 @@ export class MongooseQueue<TJobMap = Record<string, unknown>> extends DbQueue<TJ
   }
 }
 
-
 // Create a default queue model
 export function createQueueModel(
-  modelName: string = 'QueueJob',
+  modelName: string = "QueueJob",
   collectionName?: string
 ): Model<IQueueJob> {
   // Check if model already exists
@@ -240,7 +268,7 @@ export function createQueueModel(
     // Create new model
     const schema = QueueJobSchema.clone();
     if (collectionName) {
-      schema.set('collection', collectionName);
+      schema.set("collection", collectionName);
     }
     return model<IQueueJob>(modelName, schema);
   }
@@ -251,4 +279,3 @@ export const QueueJob = createQueueModel();
 
 // Re-export for convenience
 export { DbQueue };
-
