@@ -15,7 +15,10 @@
     "lint": "tsc --noEmit",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build && npm test",
-    "release": "node scripts/release.ts"
+    "release": "node scripts/release.ts",
+    "release:beta": "node scripts/release.ts beta",
+    "publish:beta": "pnpm publish --tag beta",
+    "publish:latest": "pnpm publish"
   },
   "keywords": [
     "queue",

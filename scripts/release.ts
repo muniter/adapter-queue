@@ -4,7 +4,7 @@ import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const VALID_VERSIONS = ['patch', 'minor', 'major', 'keep'];
+const VALID_VERSIONS = ['patch', 'minor', 'major', 'keep', 'beta'];
 
 function run(command: string): string {
   console.log(`\n> ${command}`);
@@ -14,6 +14,17 @@ function run(command: string): string {
 function getVersion(): string {
   const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
   return packageJson.version;
+}
+
+function getBetaVersion(currentVersion: string): string {
+  // Extract the base version (remove any existing beta suffix)
+  const baseVersion = currentVersion.replace(/-beta\.\d+$/, '');
+  
+  // Check if there's already a beta version
+  const betaMatch = currentVersion.match(/-beta\.(\d+)$/);
+  const betaNumber = betaMatch ? parseInt(betaMatch[1]) + 1 : 1;
+  
+  return `${baseVersion}-beta.${betaNumber}`;
 }
 
 async function main() {
@@ -26,6 +37,7 @@ async function main() {
     console.error('  pnpm release patch     # 0.0.1 -> 0.0.2');
     console.error('  pnpm release minor     # 0.0.1 -> 0.1.0');
     console.error('  pnpm release major     # 0.0.1 -> 1.0.0');
+    console.error('  pnpm release beta      # 0.0.1 -> 0.0.1-beta.1');
     console.error('  pnpm release keep      # Keep current version\n');
     process.exit(1);
   }
@@ -37,7 +49,7 @@ async function main() {
   try {
     execSync('git diff-index --quiet HEAD --', { stdio: 'pipe' });
   } catch {
-    console.error('\n❌ Error: You have uncommitted changes. Please commit or stash them first.\n');
+    console.error('\n❌ Error: You have uncommitted changgg/es. Please commit or stash them first.\n');
     process.exit(1);
   }
 
@@ -63,6 +75,20 @@ async function main() {
   
   if (versionType === 'keep') {
     console.log(`\n📝 Keeping version at ${oldVersion}`);
+  } else if (versionType === 'beta') {
+    newVersion = getBetaVersion(oldVersion);
+    console.log(`\n📝 Creating beta version: ${oldVersion} -> ${newVersion}`);
+    
+    // Update package.json with the new beta version
+    const packageJsonPath = join(process.cwd(), 'package.json');
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    packageJson.version = newVersion;
+    
+    // Write the updated package.json
+    const fs = await import('fs/promises');
+    await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
+    
+    console.log(`   Version set to ${newVersion}`);
   } else {
     console.log(`\n📝 Bumping version from ${oldVersion}...`);
     run(`npm version ${versionType} --no-git-tag-version`);
@@ -74,9 +100,12 @@ async function main() {
   console.log('\n📌 Creating git commit and tag...');
   if (versionType !== 'keep') {
     run('git add package.json');
-    run(`git commit -m "chore: release v${newVersion}"`);
+    const commitMessage = versionType === 'beta' 
+      ? `chore: release ${newVersion} (beta)`
+      : `chore: release v${newVersion}`;
+    run(`git commit -m "${commitMessage}"`);
   }
-  run(`git tag v${newVersion}`);
+  run(`git tag ${newVersion}`);
 
   // 8. Push changes
   console.log('\n📤 Pushing changes to remote...');
@@ -86,10 +115,19 @@ async function main() {
   // 9. Show publish command
   console.log('\n✅ Release preparation complete!\n');
   console.log(`📦 Version ${newVersion} is ready to publish.\n`);
-  console.log('To publish to npm, run:');
-  console.log(`\n  pnpm publish\n`);
-  console.log('Or if this is the first publish:');
-  console.log(`\n  pnpm publish --access public\n`);
+  
+  if (versionType === 'beta') {
+    console.log('To publish this beta version to npm, run:');
+    console.log(`\n  pnpm publish --tag beta\n`);
+    console.log('Or if this is the first publish:');
+    console.log(`\n  pnpm publish --tag beta --access public\n`);
+    console.log('\nNote: Beta versions are published with the "beta" tag, not "latest".');
+  } else {
+    console.log('To publish to npm, run:');
+    console.log(`\n  pnpm publish\n`);
+    console.log('Or if this is the first publish:');
+    console.log(`\n  pnpm publish --access public\n`);
+  }
 }
 
 main().catch((error) => {
