@@ -59,7 +59,7 @@ describe('Mongoose Adapter', () => {
         priority: 0
       };
 
-      const jobId = await adapter.insertJob(Buffer.from('test'), meta);
+      const jobId = await adapter.insertJob({ test: 'test' }, meta);
       expect(jobId).toBeDefined();
       expect(typeof jobId).toBe('string');
 
@@ -67,21 +67,21 @@ describe('Mongoose Adapter', () => {
       const found = await testModel.findById(jobId);
       expect(found).toBeDefined();
       expect(found?.status).toBe('waiting');
-      expect(Buffer.compare(found?.payload || Buffer.alloc(0), Buffer.from('test'))).toBe(0);
+      expect(found?.payload).toEqual({ test: 'test' });
     });
 
     it('should implement reserveJob correctly', async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
       
       // Insert a job first
-      const jobId = await adapter.insertJob(Buffer.from('test job'), { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: 'test job' }, { ttr: 300 });
 
       // Reserve it
       const job = await adapter.reserveJob(60);
 
       expect(job).toBeDefined();
       expect(job?.id).toBe(jobId);
-      expect(Buffer.compare(job?.payload || Buffer.alloc(0), Buffer.from('test job'))).toBe(0);
+      expect(job?.payload).toEqual({ test: 'test job' });
       expect(job?.meta.ttr).toBe(300);
       
       // Verify status changed
@@ -92,7 +92,7 @@ describe('Mongoose Adapter', () => {
     it('should implement completeJob correctly', async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
       
-      const jobId = await adapter.insertJob(Buffer.from('test'), { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: 'test' }, { ttr: 300 });
 
       await adapter.completeJob(jobId);
 
@@ -104,7 +104,7 @@ describe('Mongoose Adapter', () => {
     it('should implement getJobStatus correctly', async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
       
-      const jobId = await adapter.insertJob(Buffer.from('test'), { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: 'test' }, { ttr: 300 });
 
       let status = await adapter.getJobStatus(jobId);
       expect(status).toBe('waiting');
@@ -123,7 +123,7 @@ describe('Mongoose Adapter', () => {
     it('should implement failJob correctly', async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
       
-      const jobId = await adapter.insertJob(Buffer.from('test'), { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: 'test' }, { ttr: 300 });
 
       await adapter.failJob(jobId, 'Test error');
 
@@ -135,7 +135,7 @@ describe('Mongoose Adapter', () => {
     it('should implement releaseJob correctly', async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
       
-      const jobId = await adapter.insertJob(Buffer.from('test'), { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: 'test' }, { ttr: 300 });
       
       // Reserve then release
       await adapter.reserveJob(60);
@@ -372,7 +372,7 @@ describe('Mongoose Adapter', () => {
       // Find using Mongoose
       const doc = await testModel.findOne({ _id: new mongoose.Types.ObjectId(jobId) });
       expect(doc).toBeDefined();
-      expect(doc?.payload).toBeInstanceOf(Buffer);
+      expect(doc?.payload).toBeInstanceOf(Object);
       expect(doc?.status).toBe('waiting');
       expect(doc?.pushTime).toBeInstanceOf(Date);
     });

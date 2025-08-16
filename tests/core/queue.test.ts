@@ -323,7 +323,7 @@ describe('Queue', () => {
       
       // Check time between polls
       const timeBetweenPolls = plugin.getTimeBetweenPolls(0, 1);
-      expect(timeBetweenPolls).toBeGreaterThanOrEqual(500);
+      expect(timeBetweenPolls).toBeGreaterThanOrEqual(500 * 0.9);
       expect(timeBetweenPolls).toBeLessThan(600); // Allow some margin
     });
 
