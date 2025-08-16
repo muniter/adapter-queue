@@ -2,6 +2,7 @@
 src/
 tests/
 example-queue-project/
+examples/
 
 # Config files
 tsconfig.json
