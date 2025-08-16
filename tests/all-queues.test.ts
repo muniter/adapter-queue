@@ -310,7 +310,7 @@ describe.concurrent.each(configs)("Queue Driver: $name", (config) => {
       await config.beforeAll();
     }
     console.timeEnd(`${config.name} beforeAll`);
-  });
+  }, 60_000);
 
   afterAll(async () => {
     if (config.afterAll) {
