@@ -298,36 +298,13 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
         }
 
         // 4. Execute job (with plugin hooks)
-        let success = false;
-        let jobError: unknown;
-        
-        // We need to track errors for plugins, but handleMessage catches them internally
-        // So we'll set up an event listener to capture the error
-        let capturedError: unknown;
-        const errorListener = (event: QueueEvent) => {
-          if (event.type === 'afterError' && event.id === message.id) {
-            capturedError = event.error;
-          }
-        };
-        
-        this.once('afterError', errorListener);
-        
-        try {
-          success = await this.handleMessage(message);
-          jobError = capturedError; // Will be undefined if no error
-        } catch (error) {
-          // This shouldn't happen since handleMessage catches errors
-          jobError = error;
-          success = false;
-        } finally {
-          this.removeListener('afterError', errorListener);
-        }
+        const handleResult = await this.handleMessage(message);
 
         // 5. Post-execution hooks
         try {
           for (const plugin of this.plugins) {
             if (plugin.afterJob) {
-              await plugin.afterJob(message, jobError);
+              await plugin.afterJob(message, handleResult.success ? undefined : handleResult.error);
             }
           }
         } catch (error) {
@@ -336,12 +313,12 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
         }
 
         // Complete the job if successful, otherwise mark as failed
-        if (success) {
+        if (handleResult.success) {
           await this.completeJob(message).catch((error) => {
             throw QueueError.fromError({ message: 'Error completing job', cause: error });
           });
         } else {
-          await this.failJob(message, jobError || new Error('Unknown job failure')).catch((error) => {
+          await this.failJob(message, handleResult.error).catch((error) => {
             throw QueueError.fromError({ message: 'Error failing job', cause: error });
           });
         }
@@ -361,7 +338,7 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * @returns Promise resolving to true if processing succeeded, false if it failed
    * @protected
    */
-  protected async handleMessage(message: QueueMessage): Promise<boolean> {
+  protected async handleMessage(message: QueueMessage): Promise<{ success: true } | { success: false, error: Error }> {
     try {
       // Parse the job data (this may have been modified by plugins)
       const jobData: JobData = JSON.parse(message.payload);
@@ -391,9 +368,10 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
       const afterEvent: QueueEvent = { type: 'afterExec', id: message.id, name, payload, meta: message.meta, result };
       this.emit('afterExec', afterEvent);
 
-      return true;
+      return { success: true };
     } catch (error) {
-      return await this.handleError(message, error);
+      await this.handleError(message, error);
+      return { success: false, error: error as Error };
     }
   }
 

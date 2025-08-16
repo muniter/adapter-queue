@@ -156,7 +156,7 @@ describe('Queue', () => {
 
       const result = await queue['handleMessage'](message);
       
-      expect(result).toBe(true);
+      expect(result.success).toBe(true);
       expect(handlerSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           id: '1',
@@ -235,7 +235,7 @@ describe('Queue', () => {
 
       const result = await queue['handleMessage'](message);
       
-      expect(result).toBe(false); // Job failed
+      expect(result.success).toBe(false); // Job failed
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'afterError',
@@ -271,7 +271,7 @@ describe('Queue', () => {
 
       const result = await queue['handleMessage'](message);
       
-      expect(result).toBe(false); // Job failed
+      expect(result.success).toBe(false); // Job failed
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'afterError',
