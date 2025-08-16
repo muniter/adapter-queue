@@ -119,7 +119,9 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
 
     const jobData: JobData = { name: name as string, payload };
     const serializedPayload = JSON.stringify(jobData);
-    const id = await this.pushMessage(serializedPayload, meta);
+    const id = await this.pushMessage(serializedPayload, meta).catch((error) => {
+      throw QueueError.fromError({ message: 'Error adding job to the queue', cause: error });
+    });
 
     const afterEvent: QueueEvent = { type: 'afterPush', id, name: name as string, payload, meta };
     this.emit('afterPush', afterEvent);
@@ -266,7 +268,9 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
         }
         if (stopped) break;
 
-        const message = await this.reserve(timeout);
+        const message = await this.reserve(timeout).catch((error) => {
+          throw QueueError.fromError({ message: 'Error reserving job', cause: error });
+        });
         if (!message) {
           if (!repeat) break;
           
@@ -333,9 +337,13 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
 
         // Complete the job if successful, otherwise mark as failed
         if (success) {
-          await this.completeJob(message);
+          await this.completeJob(message).catch((error) => {
+            throw QueueError.fromError({ message: 'Error completing job', cause: error });
+          });
         } else {
-          await this.failJob(message, jobError || new Error('Unknown job failure'));
+          await this.failJob(message, jobError || new Error('Unknown job failure')).catch((error) => {
+            throw QueueError.fromError({ message: 'Error failing job', cause: error });
+          });
         }
       }
     } finally {
@@ -469,4 +477,18 @@ export abstract class Queue<TJobMap = Record<string, any>, TJobRequest extends B
    * @abstract
    */
   abstract status(id: string): Promise<JobStatus>;
+}
+
+export class QueueError extends Error {
+  constructor({ message, cause }: { message: string, cause: unknown }) {
+    super(message);
+    this.name = 'QueueError';
+    this.cause = cause;
+  }
+  
+  static fromError({ message, cause }: { message: string, cause: unknown }): QueueError {
+    const error = new QueueError({ message, cause });
+    Error.captureStackTrace(error, QueueError.fromError);
+    return error;
+  }
 }

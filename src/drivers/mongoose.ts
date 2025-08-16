@@ -82,18 +82,31 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
   async insertJob(payload: any, meta: JobMeta): Promise<string> {
     const now = new Date();
 
-    const doc = await this.model.create({
-      payload,
-      ttr: meta.ttr ?? 300,
-      delaySeconds: meta.delaySeconds ?? 0,
-      priority: meta.priority ?? 0,
-      pushTime: now,
-      delayTime: meta.delaySeconds
-        ? new Date(now.getTime() + meta.delaySeconds * 1000)
-        : null,
-      status: "waiting",
-      attempt: 0,
-    });
+    const doc = await this.model
+      .create({
+        payload,
+        ttr: meta.ttr ?? 300,
+        delaySeconds: meta.delaySeconds ?? 0,
+        priority: meta.priority ?? 0,
+        pushTime: now,
+        delayTime: meta.delaySeconds
+          ? new Date(now.getTime() + meta.delaySeconds * 1000)
+          : null,
+        status: "waiting",
+        attempt: 0,
+      })
+      .catch((err) => {
+        if (err instanceof Error && "code" in err) {
+          if (err.code === 256) {
+            const newError = new Error(
+              "Error trying to insert job, you probably forgot to await the addJob call and the mongoose session was closed"
+            );
+            newError.cause = err;
+            throw newError;
+          }
+        }
+        throw err;
+      });
 
     return doc._id.toHexString();
   }
@@ -168,7 +181,7 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
   async completeJob(id: string): Promise<void> {
     await this.model.updateOne(
-      { _id: new Types.ObjectId(id) },
+      { _id: id },
       { $set: { status: "done", doneTime: new Date() } },
       { session: undefined }
     );
@@ -176,7 +189,7 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
   async releaseJob(id: string): Promise<void> {
     await this.model.updateOne(
-      { _id: new Types.ObjectId(id) },
+      { _id: id },
       {
         $set: {
           status: "waiting",
@@ -190,7 +203,7 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
   async failJob(id: string, error: string): Promise<void> {
     await this.model.updateOne(
-      { _id: new Types.ObjectId(id) },
+      { _id: id },
       {
         $set: {
           status: "failed",
@@ -204,11 +217,7 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
   async getJobStatus(id: string): Promise<JobStatus | null> {
     const doc = await this.model
-      .findOne(
-        { _id: new Types.ObjectId(id) },
-        { status: 1, delayTime: 1 },
-        { session: undefined }
-      )
+      .findOne({ _id: id }, { status: 1, delayTime: 1 }, { session: undefined })
       .exec();
 
     if (!doc) {
@@ -243,10 +252,13 @@ export class MongooseQueue<
   TJobMap = Record<string, unknown>
 > extends DbQueue<TJobMap> {
   mongooseAdapter: MongooseDatabaseAdapter;
+  model: Model<IQueueJob>;
 
-  constructor(config: { model: Model<IQueueJob>; name: string }) {
-    const adapter = new MongooseDatabaseAdapter(config.model);
+  constructor(config: { model?: Model<IQueueJob>; name: string }) {
+    const model = config.model ?? createQueueModel(config.name);
+    const adapter = new MongooseDatabaseAdapter(model);
     super(adapter, { name: config.name });
+    this.model = model;
     this.mongooseAdapter = adapter;
   }
 }
@@ -268,9 +280,3 @@ export function createQueueModel(
     return model<IQueueJob>(modelName, schema);
   }
 }
-
-// Export the default QueueJob model
-export const QueueJob = createQueueModel();
-
-// Re-export for convenience
-export { DbQueue };

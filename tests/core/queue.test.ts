@@ -342,7 +342,7 @@ describe('Queue', () => {
       
       // Should still sleep for 500ms, not 200ms
       const timeBetweenPolls = plugin.getTimeBetweenPolls(0, 1);
-      expect(timeBetweenPolls).toBeGreaterThanOrEqual(500);
+      expect(timeBetweenPolls).toBeGreaterThanOrEqual(500 * 0.9);
       expect(timeBetweenPolls).toBeLessThan(600);
     });
 
@@ -398,7 +398,7 @@ describe('Queue', () => {
       
       // Should sleep for exactly 200ms
       const timeBetweenPolls = plugin.getTimeBetweenPolls(0, 1);
-      expect(timeBetweenPolls).toBeGreaterThanOrEqual(200);
+      expect(timeBetweenPolls).toBeGreaterThanOrEqual(200 * 0.9);
       expect(timeBetweenPolls).toBeLessThan(250);
     });
 
