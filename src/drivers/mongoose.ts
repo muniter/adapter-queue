@@ -1,5 +1,4 @@
 import { Schema, model, Model, Document, Types } from "mongoose";
-import type { UpdateQuery, FilterQuery, QueryOptions } from "mongoose";
 import type {
   DatabaseAdapter,
   QueueJobRecord,
@@ -75,10 +74,6 @@ export const QueueJobSchema = new Schema<IQueueJob>(
 QueueJobSchema.index({ status: 1, delayTime: 1, priority: -1, pushTime: 1 });
 QueueJobSchema.index({ status: 1, expireTime: 1 });
 QueueJobSchema.index({ _id: 1, status: 1 });
-
-// Type definitions for MongoDB operations
-type MongoFilter = FilterQuery<IQueueJobDocument>;
-type MongoUpdate = UpdateQuery<IQueueJobDocument>;
 
 // Mongoose database adapter implementing DatabaseAdapter interface
 export class MongooseDatabaseAdapter implements DatabaseAdapter {
