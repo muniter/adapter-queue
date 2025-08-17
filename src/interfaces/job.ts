@@ -3,6 +3,8 @@ import type { Queue } from "../core/queue.ts";
 export type JobStatus = 'waiting' | 'delayed' | 'reserved' | 'done' | 'failed';
 
 export interface JobMeta {
+  /** Job name */
+  name: string;
   /** Time to run - number of seconds to run the job */ 
   ttr?: number;
   /** Number of seconds to delay job execution from now */
@@ -50,19 +52,10 @@ export type JobHandlers<TJobMap> = {
 
 export interface QueueMessage {
   id: string;
-  /** Job name */
-  name: string;
   /** Job payload */
-  payload: string;
+  payload: unknown;
   /** Job meta: ttr, delaySeconds, priority, pushedAt, reservedAt, doneAt, receiptHandle */
   meta: JobMeta;
-}
-
-export interface JobData {
-  /** Job name */
-  name: string;
-  /** Job payload */
-  payload: any;
 }
 
 export type QueueEvent = 

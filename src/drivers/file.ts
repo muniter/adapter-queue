@@ -62,12 +62,12 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
     }
   }
 
-  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: unknown, meta: JobMeta): Promise<string> {
     const id = await this.touchIndex(async (data) => {
       const jobId = String(++data.lastId);
       const jobPath = path.join(this.path, `job${jobId}.data`);
       
-      await fs.writeFile(jobPath, payload, 'utf8');
+      await fs.writeFile(jobPath, JSON.stringify({ payload, meta }), 'utf8');
       if (this.fileMode !== undefined) {
         await fs.chmod(jobPath, this.fileMode);
       }
@@ -137,17 +137,14 @@ export class FileQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Fil
 
       if (reserved) {
         const jobPath = path.join(this.path, `job${reserved.id}.data`);
-        const payload = await fs.readFile(jobPath, 'utf8');
-        
-        // Extract job name from payload
-        const jobData = JSON.parse(payload);
+        const { payload, meta } = JSON.parse(await fs.readFile(jobPath, 'utf8'));
         
         return {
           id: reserved.id,
-          name: jobData.name,
           payload,
           meta: {
-            ttr: reserved.ttr
+            ttr: reserved.ttr,
+            name: meta.name,
           }
         };
       }

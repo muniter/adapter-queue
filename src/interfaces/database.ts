@@ -1,7 +1,7 @@
 import type { JobStatus, JobMeta } from './job.ts';
 
 export interface DatabaseAdapter {
-  insertJob(payload: Buffer, meta: JobMeta): Promise<string>;
+  insertJob(payload: unknown, meta: JobMeta): Promise<string>;
   reserveJob(timeout: number): Promise<QueueJobRecord | null>;
   completeJob(id: string): Promise<void>;
   releaseJob(id: string): Promise<void>;

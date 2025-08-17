@@ -69,13 +69,11 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
     this.redis = redisClient;
   }
 
-  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: unknown, meta: JobMeta): Promise<string> {
     const id = (await this.redis.incr(this.idKey)).toString();
-    const ttr = meta.ttr || this.ttrDefault;
     const now = Math.floor(Date.now() / 1000);
     
-    // Store message in Yii2 format: "ttr;jsonPayload"
-    const message = `${ttr};${payload}`;
+    const message = JSON.stringify({ payload, meta });
     await this.redis.hSet(this.messagesKey, id, message);
     
     if (meta.delaySeconds && meta.delaySeconds > 0) {
@@ -142,32 +140,21 @@ export class RedisQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, Re
       return null;
     }
     
-    // Parse Yii2 format: "ttr;jsonPayload"
-    const separatorIndex = message.indexOf(';');
-    if (separatorIndex === -1) {
-      return null;
-    }
-    
-    const ttr = parseInt(message.substring(0, separatorIndex));
-    const payloadStr = message.substring(separatorIndex + 1);
+    const { payload, meta } = JSON.parse(message) as { payload: unknown, meta: JobMeta };
     
     // Reserve the job
-    const expireAt = now + ttr;
+    const expireAt = now + (meta.ttr || this.ttrDefault);
     await this.redis.zAdd(this.reservedKey, { score: expireAt, value: id });
     
     // Increment attempt counter
     await this.redis.hIncrBy(this.attemptsKey, id, 1);
     
-    // Extract job name from payload
-    const jobData = JSON.parse(payloadStr);
-    
     return {
       id,
-      name: jobData.name,
-      payload: payloadStr,
+      payload,
       meta: {
-        ttr,
-        pushedAt: new Date()
+        ttr: meta.ttr || this.ttrDefault,
+        name: meta.name,
       }
     };
   }

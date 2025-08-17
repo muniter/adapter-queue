@@ -1,5 +1,5 @@
-import type { QueuePlugin } from '../interfaces/plugin.ts';
-import type { QueueMessage } from '../interfaces/job.ts';
+import type { QueuePlugin } from "../interfaces/plugin.ts";
+import type { QueueMessage } from "../interfaces/job.ts";
 
 /**
  * Simple test plugin that tracks the lifecycle of jobs and plugin hooks.
@@ -16,7 +16,10 @@ export interface TestPluginState {
   queueName?: string;
 }
 
-export function createTestPlugin(): { plugin: QueuePlugin; state: TestPluginState } {
+export function createTestPlugin(): {
+  plugin: QueuePlugin;
+  state: TestPluginState;
+} {
   const state: TestPluginState = {
     initialized: false,
     disposed: false,
@@ -32,7 +35,7 @@ export function createTestPlugin(): { plugin: QueuePlugin; state: TestPluginStat
     async init({ queue }) {
       state.initialized = true;
       state.queueName = queue.name;
-      
+
       // Return cleanup function
       return async () => {
         state.disposed = true;
@@ -41,7 +44,7 @@ export function createTestPlugin(): { plugin: QueuePlugin; state: TestPluginStat
 
     async beforePoll() {
       state.beforePollCalls++;
-      return 'continue';
+      return "continue";
     },
 
     async beforeJob(job: QueueMessage) {
@@ -63,16 +66,19 @@ export function createTestPlugin(): { plugin: QueuePlugin; state: TestPluginStat
 /**
  * Test plugin that stops processing after a certain number of polls.
  */
-export function createStopAfterPlugin(stopAfter: number): { plugin: QueuePlugin; state: { pollCount: number } } {
+export function createStopAfterPlugin(stopAfter: number): {
+  plugin: QueuePlugin;
+  state: { pollCount: number };
+} {
   const state = { pollCount: 0 };
 
   const plugin: QueuePlugin = {
     async beforePoll() {
       state.pollCount++;
       if (state.pollCount > stopAfter) {
-        return 'stop';
+        return "stop";
       }
-      return 'continue';
+      return "continue";
     },
   };
 
@@ -87,23 +93,15 @@ export function createEnrichmentPlugin(): QueuePlugin {
     async beforeJob(job: QueueMessage) {
       // Add processing timestamp
       (job.meta as any).processedAt = new Date();
-      
+
       // Add a test flag
       (job.meta as any).enriched = true;
-      
+
       // Parse and enrich payload if it's JSON
-      try {
-        const data = JSON.parse(job.payload);
-        
-        // Enrich the actual payload, not the job wrapper
-        if (data.payload) {
-          data.payload.enriched = true;
-          data.payload.processedBy = 'test-plugin';
-        }
-        
-        job.payload = JSON.stringify(data);
-      } catch {
-        // Not JSON, skip enrichment
+      // Enrich the actual payload, not the job wrapper
+      if (typeof job.payload === "object" && job.payload !== null) {
+        (job.payload as any).enriched = true;
+        (job.payload as any).processedBy = "test-plugin";
       }
     },
   };

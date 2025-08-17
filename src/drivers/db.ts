@@ -1,6 +1,6 @@
 import { Queue } from '../core/queue.ts';
 import type { JobStatus, JobMeta, QueueMessage, BaseJobOptions, WithPriority, WithDelay } from '../interfaces/job.ts';
-import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
+import type { DatabaseAdapter } from '../interfaces/database.ts';
 import type { QueueOptions } from '../interfaces/plugin.ts';
 
 // Driver-specific job request interface
@@ -23,8 +23,8 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
     return this.db;
   }
 
-  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
-    return await this.db.insertJob(Buffer.from(payload), meta);
+  protected async pushMessage(payload: unknown, meta: JobMeta): Promise<string> {
+    return await this.db.insertJob(payload, meta);
   }
 
   protected async reserve(timeout: number): Promise<QueueMessage | null> {
@@ -34,15 +34,10 @@ export class DbQueue<TJobMap = Record<string, any>> extends Queue<TJobMap, DbJob
       return null;
     }
 
-    const payload = record.payload.toString();
-    // Extract job name from payload
-    const jobData = JSON.parse(payload);
-    
     return {
       id: record.id,
-      name: jobData.name,
-      payload,
-      meta: record.meta
+      payload: record.payload,
+      meta: record.meta,
     };
   }
 

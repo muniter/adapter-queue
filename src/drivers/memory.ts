@@ -11,7 +11,7 @@ export interface InMemoryJobRequest<TPayload> extends BaseJobOptions, WithPriori
 
 interface InMemoryJobRecord {
   id: string;
-  payload: string;
+  payload: unknown;
   meta: JobMeta;
   status: 'waiting' | 'reserved' | 'done' | 'failed';
   pushedAt: Date;
@@ -86,7 +86,7 @@ export class InMemoryQueue<TJobMap = Record<string, any>> extends Queue<TJobMap,
     this.maxJobs = options.maxJobs || 1000;
   }
 
-  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: unknown, meta: JobMeta): Promise<string> {
     const id = (this.nextJobId++).toString();
     const now = new Date();
     
@@ -154,12 +154,8 @@ export class InMemoryQueue<TJobMap = Record<string, any>> extends Queue<TJobMap,
     
     this.ttrTimeouts.set(jobId, ttrTimeout);
 
-    // Extract job name from payload
-    const jobData = JSON.parse(job.payload);
-    
     return {
       id: jobId,
-      name: jobData.name,
       payload: job.payload,
       meta: job.meta
     };

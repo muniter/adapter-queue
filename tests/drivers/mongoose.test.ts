@@ -68,9 +68,10 @@ describe("Mongoose Adapter", () => {
         ttr: 300,
         delaySeconds: 0,
         priority: 0,
+        name: "test-job",
       };
 
-      const jobId = await adapter.insertJob({ test: "test" }, meta);
+      const jobId = await adapter.insertJob({ test: "test" }, { ...meta, name: "test-job" });
       expect(jobId).toBeDefined();
       expect(typeof jobId).toBe("string");
 
@@ -85,7 +86,7 @@ describe("Mongoose Adapter", () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
 
       // Insert a job first
-      const jobId = await adapter.insertJob({ test: "test job" }, { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: "test job" }, { ttr: 300, name: "test-job" });
 
       // Reserve it
       const job = await adapter.reserveJob(60);
@@ -103,7 +104,7 @@ describe("Mongoose Adapter", () => {
     it("should implement completeJob correctly", async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
 
-      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300, name: "test-job" });
 
       await adapter.completeJob(jobId);
 
@@ -115,7 +116,7 @@ describe("Mongoose Adapter", () => {
     it("should implement getJobStatus correctly", async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
 
-      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300, name: "test-job" });
 
       let status = await adapter.getJobStatus(jobId);
       expect(status).toBe("waiting");
@@ -134,7 +135,7 @@ describe("Mongoose Adapter", () => {
     it("should implement failJob correctly", async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
 
-      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300, name: "test-job" });
 
       await adapter.failJob(jobId, "Test error");
 
@@ -146,7 +147,7 @@ describe("Mongoose Adapter", () => {
     it("should implement releaseJob correctly", async () => {
       const adapter = new MongooseDatabaseAdapter(testModel);
 
-      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300 });
+      const jobId = await adapter.insertJob({ test: "test" }, { ttr: 300, name: "test-job" });
 
       // Reserve then release
       await adapter.reserveJob(60);
@@ -218,8 +219,7 @@ describe("Mongoose Adapter", () => {
       // Reserve jobs - should get highest priority first
       const job1 = await queue.mongooseAdapter.reserveJob(60);
       assert(job1);
-      const payload = JSON.parse(job1.payload.toString());
-      expect(payload.payload.priority).toBe(3);
+      expect(job1.meta.priority).toBe(3);
     });
 
     it("should handle delayed jobs", async () => {

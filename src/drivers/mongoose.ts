@@ -25,6 +25,7 @@ export interface MongooseJobRequest<TPayload>
 // MongoDB document structure for queue jobs
 export interface IQueueJobDocument {
   payload: any;
+  name: string;
   ttr: number;
   delaySeconds: number;
   priority: number;
@@ -46,6 +47,7 @@ export interface IQueueJob extends IQueueJobDocument, Document {
 // Queue job schema
 export const QueueJobSchema = new Schema<IQueueJob>(
   {
+    name: { type: String, required: true },
     payload: { type: Schema.Types.Mixed, required: true },
     ttr: { type: Number, required: true, default: 300 },
     delaySeconds: { type: Number, required: true, default: 0 },
@@ -79,12 +81,13 @@ QueueJobSchema.index({ _id: 1, status: 1 });
 export class MongooseDatabaseAdapter implements DatabaseAdapter {
   constructor(private model: Model<IQueueJob>) {}
 
-  async insertJob(payload: any, meta: JobMeta): Promise<string> {
+  async insertJob(payload: unknown, meta: JobMeta): Promise<string> {
     const now = new Date();
 
     const doc = await this.model
       .create({
         payload,
+        name: meta.name,
         ttr: meta.ttr ?? 300,
         delaySeconds: meta.delaySeconds ?? 0,
         priority: meta.priority ?? 0,
@@ -166,14 +169,15 @@ export class MongooseDatabaseAdapter implements DatabaseAdapter {
 
     return {
       id: doc._id.toHexString(),
-      payload: doc.payload,
       meta: {
+        name: doc.name,
         ttr: doc.ttr,
         delaySeconds: doc.delaySeconds,
         priority: doc.priority,
         pushedAt: doc.pushTime,
         reservedAt: now,
       },
+      payload: doc.payload,
       pushedAt: doc.pushTime,
       reservedAt: now,
     };

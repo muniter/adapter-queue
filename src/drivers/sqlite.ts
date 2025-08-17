@@ -1,13 +1,19 @@
-import Database from 'better-sqlite3';
-import type { DatabaseAdapter, QueueJobRecord } from '../interfaces/database.ts';
-import type { JobMeta, JobStatus } from '../interfaces/job.ts';
-import { DbQueue } from '../drivers/db.ts';
+import Database from "better-sqlite3";
+import type {
+  DatabaseAdapter,
+  QueueJobRecord,
+} from "../interfaces/database.ts";
+import type { JobMeta, JobStatus } from "../interfaces/job.ts";
+import { DbQueue } from "../drivers/db.ts";
 
 // Generic SQLite database interface - works with better-sqlite3, expo-sqlite, bun:sqlite, etc.
 export interface SQLiteDatabase {
   exec(sql: string): void;
   prepare(sql: string): {
-    run(...params: any[]): { lastInsertRowid: number | bigint; changes: number };
+    run(...params: any[]): {
+      lastInsertRowid: number | bigint;
+      changes: number;
+    };
     get(...params: any[]): any;
   };
 }
@@ -17,6 +23,23 @@ export interface BetterSQLite3Config {
   filename: string;
   options?: Database.Options;
 }
+
+type Row = {
+  id: number;
+  name: string;
+  payload: string;
+  ttr: number;
+  delay_seconds: number;
+  priority: number;
+  push_time: number;
+  delay_time?: number;
+  reserve_time?: number;
+  expire_time?: number;
+  done_time?: number;
+  attempt: number;
+  status: "waiting" | "reserved" | "done" | "failed";
+  error_message?: string;
+};
 
 export class SQLiteDatabaseAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase;
@@ -31,6 +54,7 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS jobs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
         payload BLOB NOT NULL,
         ttr INTEGER DEFAULT 300,
         delay_seconds INTEGER DEFAULT 0,
@@ -51,30 +75,31 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
       CREATE INDEX IF NOT EXISTS idx_jobs_status_delay_priority 
       ON jobs (status, delay_time, priority DESC, push_time ASC)
     `);
-    
+
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_jobs_expire_time 
       ON jobs (expire_time) WHERE status = 'reserved'
     `);
   }
 
-  async insertJob(payload: Buffer, meta: JobMeta): Promise<string> {
+  async insertJob(payload: unknown, meta: JobMeta): Promise<string> {
     const now = new Date();
     const stmt = this.db.prepare(`
       INSERT INTO jobs (
-        payload, ttr, delay_seconds, priority, push_time, 
+        name, payload, ttr, delay_seconds, priority, push_time, 
         delay_time, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, jsonb(?), ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
-      payload,
+      meta.name,
+      JSON.stringify(payload),
       meta.ttr || 300,
       meta.delaySeconds || 0,
       meta.priority || 0,
       now.getTime(),
       meta.delaySeconds ? now.getTime() + meta.delaySeconds * 1000 : null,
-      'waiting'
+      "waiting"
     );
 
     return result.lastInsertRowid.toString();
@@ -82,7 +107,7 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
   async reserveJob(timeout: number): Promise<QueueJobRecord | null> {
     const now = Date.now();
-    
+
     // First, recover any timed-out reserved jobs back to waiting
     const recoverStmt = this.db.prepare(`
       UPDATE jobs SET 
@@ -94,8 +119,8 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
        AND expire_time < ?
     `);
     recoverStmt.run(now);
-    
-    // Atomically reserve a job using UPDATE with RETURNING 
+
+    // Atomically reserve a job using UPDATE with RETURNING
     // SQLite 3.35+ supports RETURNING clause
     const reserveStmt = this.db.prepare(`
       UPDATE jobs SET 
@@ -109,10 +134,24 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
          ORDER BY priority DESC, push_time ASC 
          LIMIT 1
        )
-       RETURNING *
+       RETURNING 
+          id, 
+          name, 
+          json(payload) as payload, 
+          ttr, 
+          delay_seconds, 
+          priority, 
+          push_time, 
+          delay_time, 
+          reserve_time, 
+          expire_time, 
+          done_time, 
+          attempt, 
+          status, 
+          error_message
     `);
 
-    const job = reserveStmt.get(now, now + 300 * 1000, now) as any;
+    const job = reserveStmt.get(now, now + 300 * 1000, now) as Row | undefined;
 
     // Check if we actually got a job
     if (!job) {
@@ -128,16 +167,17 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
     return {
       id: job.id.toString(),
-      payload: job.payload,
+      payload: JSON.parse(job.payload),
       meta: {
+        name: job.name,
         ttr: job.ttr,
         delaySeconds: job.delay_seconds,
         priority: job.priority,
         pushedAt: new Date(job.push_time),
-        reservedAt: new Date(now)
+        reservedAt: new Date(now),
       },
       pushedAt: new Date(job.push_time),
-      reservedAt: new Date(now)
+      reservedAt: new Date(now),
     };
   }
 
@@ -174,25 +214,34 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
   }
 
   async getJobStatus(id: string): Promise<JobStatus | null> {
-    const stmt = this.db.prepare(`SELECT status, delay_time FROM jobs WHERE id = ?`);
-    const job = stmt.get(parseInt(id)) as { status: string; delay_time: number | null };
+    const stmt = this.db.prepare(
+      `SELECT status, delay_time FROM jobs WHERE id = ?`
+    );
+    const job = stmt.get(parseInt(id)) as {
+      status: string;
+      delay_time: number | null;
+    };
 
     if (!job) return null;
-    
+
     // Check if job is delayed
-    if (job.status === 'waiting' && job.delay_time && job.delay_time > Date.now()) {
-      return 'delayed';
+    if (
+      job.status === "waiting" &&
+      job.delay_time &&
+      job.delay_time > Date.now()
+    ) {
+      return "delayed";
     }
-    
+
     switch (job.status) {
-      case 'waiting':
-        return 'waiting';
-      case 'reserved':
-        return 'reserved';
-      case 'done':
-        return 'done';
-      case 'failed':
-        return 'done';
+      case "waiting":
+        return "waiting";
+      case "reserved":
+        return "reserved";
+      case "done":
+        return "done";
+      case "failed":
+        return "done";
       default:
         return null;
     }
@@ -212,17 +261,19 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
   async clear(): Promise<void> {
     // Delete all jobs from the database and reset auto-increment
-    const deleteStmt = this.db.prepare('DELETE FROM jobs');
+    const deleteStmt = this.db.prepare("DELETE FROM jobs");
     deleteStmt.run();
-    
+
     // Reset the auto-increment counter
-    const resetStmt = this.db.prepare('DELETE FROM sqlite_sequence WHERE name = ?');
-    resetStmt.run('jobs');
+    const resetStmt = this.db.prepare(
+      "DELETE FROM sqlite_sequence WHERE name = ?"
+    );
+    resetStmt.run("jobs");
   }
 
   close(): void {
     // Only close if the database has a close method (some implementations might not)
-    if ('close' in this.db && typeof this.db.close === 'function') {
+    if ("close" in this.db && typeof this.db.close === "function") {
       (this.db as any).close();
     }
   }
@@ -235,7 +286,6 @@ export class SQLiteQueue<T = Record<string, any>> extends DbQueue<T> {
     super(adapter, { name: config.name });
   }
 }
-
 
 // Re-export for convenience
 export { DbQueue };

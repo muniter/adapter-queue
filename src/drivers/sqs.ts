@@ -47,11 +47,16 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     this.#onFailure = options.onFailure;
   }
 
-  protected async pushMessage(payload: string, meta: JobMeta): Promise<string> {
+  protected async pushMessage(payload: unknown, meta: JobMeta): Promise<string> {
     const messageAttributes: Record<
       string,
       { StringValue: string; DataType: string }
     > = {};
+    
+    messageAttributes.name = {
+      StringValue: meta.name,
+      DataType: "String",
+    };
 
     if (meta.ttr) {
       messageAttributes.ttr = {
@@ -68,7 +73,7 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
 
     const command = new SendMessageCommand({
       QueueUrl: this.queueUrl,
-      MessageBody: payload,
+      MessageBody: JSON.stringify(payload),
       DelaySeconds: meta.delaySeconds || 0,
       MessageAttributes: messageAttributes,
     });
@@ -104,15 +109,14 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
     ) {
       return null;
     }
-    const payload = message.Body;
+    const payload = JSON.parse(message.Body);
 
-    const meta: JobMeta = {};
-    if (message.MessageAttributes?.ttr?.StringValue) {
-      meta.ttr = parseInt(message.MessageAttributes.ttr.StringValue);
-    }
-    if (message.MessageAttributes?.priority?.StringValue) {
-      meta.priority = parseInt(message.MessageAttributes.priority.StringValue);
-    }
+    const meta: JobMeta = {
+      name: message.MessageAttributes?.name?.StringValue || "",
+      ttr: message.MessageAttributes?.ttr?.StringValue ? parseInt(message.MessageAttributes.ttr.StringValue) : undefined,
+      priority: message.MessageAttributes?.priority?.StringValue ? parseInt(message.MessageAttributes.priority.StringValue) : undefined,
+      receiptHandle: message.ReceiptHandle,
+    };
 
     if (meta.ttr) {
       const visibilityCommand = new ChangeMessageVisibilityCommand({
@@ -124,17 +128,10 @@ export class SqsQueue<TJobMap = Record<string, any>> extends Queue<
       await this.client.send(visibilityCommand);
     }
 
-    // Extract job name from payload
-    const jobData = JSON.parse(payload);
-    
     return {
       id: message.MessageId,
-      name: jobData.name,
       payload,
-      meta: {
-        ...meta,
-        receiptHandle: message.ReceiptHandle,
-      },
+      meta,
     };
   }
 
